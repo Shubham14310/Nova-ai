@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "Nova AI",
@@ -11,7 +12,7 @@
       "permissions": ["INTERNET"]
     },
     "extra": {
-      "apiBaseUrl": "https://YOUR-BACKEND.example.com"
+      "apiBaseUrl": "https://nova-ai-aqj1.onrender.com"
     }
   }
 }
