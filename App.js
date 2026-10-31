@@ -127,7 +127,23 @@ export default function App() {
     const selectedImage = image;
     setImage(null);
     try {
-      const payloadMessages = next.map((m, i) => {
+      // Recent cross-chat context is kept locally and sent only with the next message.
+      const previousContext = chats
+        .filter(chat => chat.id !== chatId)
+        .slice(0, 4)
+        .reverse()
+        .flatMap(chat => (chat.messages || []).slice(-6))
+        .filter(message => (message.role === 'user' || message.role === 'assistant') && typeof message.content === 'string')
+        .map(message => `${message.role === 'user' ? 'User' : 'Nova'}: ${message.content.slice(0, 700)}`)
+        .join('\\n')
+        .slice(-5000);
+
+      const payloadMessages = [
+        ...(previousContext ? [{
+          role: 'system',
+          content: 'Context from recent earlier chats on this device. Use only when relevant; details may be outdated. Trust the user’s latest correction and do not repeat private details unnecessarily.\\n' + previousContext
+        }] : []),
+        ...next.map((m, i) => {
         if (m.role !== 'user' || !m.imageUri || i !== next.length - 1 || !selectedImage?.base64) {
           return { role: m.role, content: m.content };
         }
@@ -135,7 +151,8 @@ export default function App() {
           { type: 'text', text: m.content },
           { type: 'image_url', image_url: { url: `data:${selectedImage.mimeType || 'image/jpeg'};base64,${selectedImage.base64}` } }
         ]};
-      });
+        })
+      ];
       const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/chat`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: payloadMessages })
