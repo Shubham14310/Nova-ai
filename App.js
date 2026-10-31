@@ -174,10 +174,10 @@ export default function App() {
   function speak(text) { Speech.speak(text, { language: 'en-IN', rate: 0.95 }); }
 
   function renderFormattedText(content) {
-    const lines = String(content || '').split('\\n');
+    const lines = String(content || '').split(/\r?\n/);
     return lines.map((line, index) => {
-      const clean = line.replace(/^\\s*[-*]\\s+/, '• ').replace(/^#{1,3}\\s+/, '');
-      const parts = clean.split(/(\\*\\*.*?\\*\\*|\\*.*?\\*)/g);
+      const clean = line.replace(/^\s*[-*]\s+/, '• ').replace(/^#{1,3}\s+/, '');
+      const parts = clean.split(/(\*\*.*?\*\*|\*.*?\*)/g);
       return <Text key={index} style={{ color: '#F5F5FA', fontSize: 15, lineHeight: 23, marginBottom: 2 }}>
         {parts.map((part, i) => {
           if (part.startsWith('**') && part.endsWith('**')) return <Text key={i} style={{ fontWeight: '800' }}>{part.slice(2, -2)}</Text>;
