@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "name": "Nova AI",
@@ -13,7 +12,10 @@
       "softwareKeyboardLayoutMode": "resize"
     },
     "extra": {
-      "apiBaseUrl": "https://nova-ai-aqj1.onrender.com"
+      "apiBaseUrl": "https://nova-ai-aqj1.onrender.com",
+      "eas": {
+        "projectId": "ccb3c978-b949-416c-bf1a-d04410f327f2"
+      }
     }
   }
 }
