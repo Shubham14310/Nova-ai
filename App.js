@@ -125,11 +125,11 @@ export default function App() {
     const userMessage = { role: 'user', content: text || 'Please describe this image.', imageUri: image?.uri };
     const next = [...messages, userMessage];
     setMessages(next); setInput(''); setBusy(true);
-    // Save the user's message immediately so it is not lost if the network fails.
-    await persist(next);
     const selectedImage = image;
     setImage(null);
     try {
+      // Save the user's message immediately so it is not lost if the network fails.
+      await persist(next);
       // Recent cross-chat context is kept locally and sent only with the next message.
       const previousContext = chats
         .filter(chat => chat.id !== chatId)
