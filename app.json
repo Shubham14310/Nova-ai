@@ -9,7 +9,8 @@
     "newArchEnabled": true,
     "android": {
       "package": "com.novaai.assistant",
-      "permissions": ["INTERNET"]
+      "permissions": ["INTERNET"],
+      "softwareKeyboardLayoutMode": "resize"
     },
     "extra": {
       "apiBaseUrl": "https://nova-ai-aqj1.onrender.com"
