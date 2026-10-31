@@ -32,6 +32,8 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
+        const savedSession = await AsyncStorage.getItem(AUTH_KEY);
+        if (savedSession) setSession(JSON.parse(savedSession));
         const saved = JSON.parse((await AsyncStorage.getItem(STORAGE_KEY)) || '[]');
         setChats(saved);
         const latest = saved[0];
