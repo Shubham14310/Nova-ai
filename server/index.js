@@ -7,7 +7,7 @@ app.use(cors());
 app.use(express.json({ limit: '12mb' }));
 
 const API_KEY = process.env.GROQ_API_KEY;
-const MODEL = process.env.GROQ_TEXT_MODEL || 'llama-3.3-70b-versatile';
+const MODEL = process.env.GROQ_TEXT_MODEL || 'openai/gpt-oss-120b';
 
 app.get('/health', (req, res) => {
   res.json({ ok: true, service: 'Nova AI backend' });
