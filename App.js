@@ -10,6 +10,9 @@ import Constants from 'expo-constants';
 
 const API_BASE = Constants.expoConfig?.extra?.apiBaseUrl || '';
 const STORAGE_KEY = 'nova_ai_chats_v1';
+const AUTH_KEY = 'nova_ai_session_v1';
+const SUPABASE_URL = 'https://icnhaeqdqxrckbfsxmne.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_nvQsuah4Kru_3MPA-MhrLA_XhFSRvB8';
 
 export default function App() {
   const [messages, setMessages] = useState([]);
@@ -19,6 +22,12 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [chatId, setChatId] = useState(String(Date.now()));
   const [showHistory, setShowHistory] = useState(false);
+  const [session, setSession] = useState(null);
+  const [authMode, setAuthMode] = useState('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -30,6 +39,62 @@ export default function App() {
       } catch {}
     })();
   }, []);
+
+  async function authenticate() {
+    if (!email.trim() || !password) {
+      Alert.alert('Details required', 'Enter your email and password.');
+      return;
+    }
+    if (password.length < 6) {
+      Alert.alert('Password too short', 'Use at least 6 characters.');
+      return;
+    }
+    setAuthBusy(true);
+    try {
+      const isSignup = authMode === 'signup';
+      const endpoint = isSignup
+        ? '/auth/v1/signup'
+        : '/auth/v1/token?grant_type=password';
+      const response = await fetch(SUPABASE_URL + endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_KEY
+        },
+        body: JSON.stringify(isSignup
+          ? { email: email.trim(), password, data: { display_name: displayName.trim() } }
+          : { email: email.trim(), password })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.msg || data.message || data.error_description || data.error || 'Authentication failed');
+      if (!data.access_token) {
+        Alert.alert('Verify your email', 'Signup successful. Check your email, verify your account, then log in.');
+        setAuthMode('login');
+        return;
+      }
+      await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(data));
+      setSession(data);
+      setPassword('');
+    } catch (error) {
+      Alert.alert('Account error', error.message);
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function logout() {
+    try {
+      if (session?.access_token) {
+        await fetch(SUPABASE_URL + '/auth/v1/logout', {
+          method: 'POST',
+          headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + session.access_token }
+        });
+      }
+    } catch {}
+    await AsyncStorage.removeItem(AUTH_KEY);
+    setSession(null);
+    setMessages([]);
+  }
 
   async function persist(nextMessages, nextId = chatId) {
     const nextChats = [{ id: nextId, title: nextMessages.find(m => m.role === 'user')?.content?.slice(0, 32) || 'New chat',
