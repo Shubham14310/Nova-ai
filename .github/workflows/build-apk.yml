@@ -9,7 +9,7 @@ on:
       - "app.json"
       - "eas.json"
       - "package.json"
-      - "package-lock.json"
+      - "server/**"
       - ".github/workflows/build-apk.yml"
 
 jobs:
@@ -18,18 +18,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Install dependencies
         run: npm install
-      - name: Setup EAS
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+
       - name: Verify Android JavaScript bundle
         run: npx expo export --platform android
-      - name: Build Android APK
-        run: eas build --platform android --profile preview --non-interactive --no-wait
+
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --non-interactive
+
+      - name: Build installable debug APK
+        working-directory: android
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nova-AI-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
