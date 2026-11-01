@@ -65,7 +65,9 @@ app.get('/health', (req, res) => {
   res.json({
     ok: true,
     service: 'Nova AI backend',
-    liveSearchConfigured: Boolean(TAVILY_API_KEY)
+    liveSearchConfigured: Boolean(TAVILY_API_KEY),
+    codeExecutionAvailable: false,
+    persistentMemoryAvailable: false
   });
 });
 
