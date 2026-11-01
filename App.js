@@ -365,7 +365,7 @@ export default function App() {
     });
   }
 
-  const bubble = ({ item }) => (
+  const bubble = ({ item, index }) => (
     <View style={{ alignSelf: item.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%',
       backgroundColor: item.role === 'user' ? '#6547E8' : '#20212A', borderRadius: 18,
       padding: 13, marginVertical: 6, borderBottomRightRadius: item.role === 'user' ? 5 : 18 }}>
@@ -374,7 +374,7 @@ export default function App() {
       {item.role === 'assistant' ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 9, gap: 16 }}>
         <TouchableOpacity onPress={() => speak(item.content)}><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▶ Read aloud</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => copyReply(item.content)} accessibilityLabel="Copy Nova reply"><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▢ Copy</Text></TouchableOpacity>
-      </View> : null}
+      </View> : <TouchableOpacity onPress={async () => { const revised = messages.slice(0, index); setMessages(revised); setInput(String(item.content || '')); await persist(revised); }} style={{ marginTop: 8, alignSelf: 'flex-end' }}><Text style={{ color: '#D8D1FF', fontSize: 12 }}>✎ Edit</Text></TouchableOpacity>}
     </View>
   );
 
