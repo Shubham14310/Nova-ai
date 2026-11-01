@@ -234,6 +234,28 @@ export default function App() {
     try {
       // Save the user's message immediately so it is not lost if the network fails.
       await persist(next);
+      // Image requests are handled directly from the normal chat composer.
+      const wantsImage = /\\b(generate|create|draw|make|generate me|create me)\\b.*\\b(image|picture|photo|art|illustration)\\b|\\b(image|picture|photo)\\b.*\\b(banao|banाओ|बनाओ|generate|create|draw)\\b|\\b(image|photo|tasveer)\\s*(bana|banao|generate)|\\b(ek|aik)\\s+.*\\s(image|tasveer)\\s*(bana|banao)/i.test(text);
+      if (wantsImage) {
+        const prompt = text.replace(/^(please\\s+)?(generate|create|draw|make)\\s+(me\\s+)?(an?\\s+)?(image|picture|photo|art|illustration)\\s*(of|for)?\\s*/i, '').trim() || text;
+        try {
+          const imageResponse = await fetch(`${API_BASE.replace(/\\/+$/, '')}/api/images/generate`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+          });
+          const imageData = await imageResponse.json();
+          if (!imageResponse.ok) throw new Error(imageData.error || 'Image generation failed');
+          if (!imageData.imageBase64) throw new Error('Image service returned no image.');
+          const generated = { role: 'assistant', content: 'Here is your image ✨', imageUri: `data:${imageData.mimeType || 'image/jpeg'};base64,${imageData.imageBase64}` };
+          const completed = [...next, generated];
+          setMessages(completed); await persist(completed);
+          return;
+        } catch (imageError) {
+          const failed = [...next, { role: 'assistant', content: `Image generation unavailable: ${imageError.message}` }];
+          setMessages(failed); await persist(failed);
+          return;
+        }
+      }
       // Recent cross-chat context is kept locally and sent only with the next message.
       const previousContext = chats
         .filter(chat => chat.id !== chatId)
