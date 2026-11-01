@@ -235,7 +235,7 @@ export default function App() {
       // Save the user's message immediately so it is not lost if the network fails.
       await persist(next);
       // Image requests are handled directly from the normal chat composer.
-      const wantsImage = /\b(generate|create|draw|make|generate me|create me)\b.*\b(image|picture|photo|art|illustration)\b|\b(image|picture|photo)\b.*\b(banao|banाओ|बनाओ|generate|create|draw)\b|\b(image|photo|tasveer)\s*(bana|banao|generate)|\b(ek|aik)\s+.*\s(image|tasveer)\s*(bana|banao)/i.test(text);
+      const wantsImage = /(?:\b(?:generate|create|draw|make|design)\b.{0,100}\b(?:image|picture|photo|art|illustration)\b)|(?:\b(?:image|picture|photo|art|illustration|tasveer|tasvir|फोटो|तस्वीर|इमेज|चित्र)\b.{0,70}\b(?:bana|banao|banado|bana\s+do|generate|create|draw|बनाओ|बना\s+दो)\b)|(?:\b(?:banao|banado|bana\s+do)\b.{0,70}\b(?:image|picture|photo|tasveer|फोटो|तस्वीर|इमेज|चित्र)\b)|(?:बनाओ|बना\s+दो).{0,60}(?:फोटो|तस्वीर|इमेज|चित्र)/i.test(text);
       if (wantsImage) {
         const prompt = text.replace(/^(please\s+)?(generate|create|draw|make)\s+(me\s+)?(an?\s+)?(image|picture|photo|art|illustration)\s*(of|for)?\s*/i, '').trim() || text;
         try {
