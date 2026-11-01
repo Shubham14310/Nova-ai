@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   SafeAreaView, View, Text, TextInput, TouchableOpacity, FlatList,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert, StatusBar
+  KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert, StatusBar, Share
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -40,6 +40,9 @@ export default function App() {
   const [availableVoices, setAvailableVoices] = useState([]);
   const [selectedVoice, setSelectedVoice] = useState(null);
   const [speechRate, setSpeechRate] = useState(0.95);
+  const [showSettings, setShowSettings] = useState(false);
+  const [customInstructions, setCustomInstructions] = useState('');
+  const [temporaryChat, setTemporaryChat] = useState(false);
   const listRef = useRef(null);
 
   useEffect(() => {
@@ -49,6 +52,8 @@ export default function App() {
         if (savedVoice) setSelectedVoice(JSON.parse(savedVoice));
         const savedRate = await AsyncStorage.getItem('nova_ai_voice_rate_v1');
         if (savedRate) setSpeechRate(Math.max(0.6, Math.min(1.2, Number(savedRate) || 0.95)));
+        const savedInstructions = await AsyncStorage.getItem('nova_ai_custom_instructions_v1');
+        if (savedInstructions) setCustomInstructions(savedInstructions);
         const voices = await Speech.getAvailableVoicesAsync();
         setAvailableVoices(Array.isArray(voices) ? voices : []);
       } catch {}
@@ -163,6 +168,7 @@ export default function App() {
   }
 
   async function persist(nextMessages, nextId = chatId) {
+    if (temporaryChat) return;
     const existingTitle = chats.find(c => c.id === nextId)?.title;
     const nextChats = [{ id: nextId, title: existingTitle || nextMessages.find(m => m.role === 'user')?.content?.slice(0, 32) || 'New chat',
       updatedAt: Date.now(), messages: nextMessages }, ...chats.filter(c => c.id !== nextId)].slice(0, 30);
@@ -204,7 +210,22 @@ export default function App() {
       if (chatId === id) { setMessages([]); setChatId(String(Date.now())); }
     }}]);
   }
-  function newChat() { setMessages([]); setImage(null); setChatId(String(Date.now())); setShowHistory(false); setShowVoiceSettings(false); setShowAuth(false); setShowProfile(false); setShowMenu(false); }
+  function newChat() { setMessages([]); setImage(null); setChatId(String(Date.now())); setTemporaryChat(false); setShowHistory(false); setShowVoiceSettings(false); setShowSettings(false); setShowAuth(false); setShowProfile(false); setShowMenu(false); }
+
+  async function shareCurrentChat() {
+    if (!messages.length) { Alert.alert('Nothing to share', 'Start a conversation first.'); return; }
+    const transcript = messages.map(m => `${m.role === 'user' ? 'You' : 'Nova AI'}: ${m.content || ''}`).join('\n\n');
+    try { await Share.share({ message: `Nova AI conversation\n\n${transcript}` }); }
+    catch { Alert.alert('Share unavailable', 'Could not open the share sheet.'); }
+  }
+
+  async function saveCustomInstructions() {
+    const value = customInstructions.slice(0, 1500);
+    await AsyncStorage.setItem('nova_ai_custom_instructions_v1', value);
+    setCustomInstructions(value);
+    setShowSettings(false);
+    Alert.alert('Saved', 'Your custom instructions are saved on this device.');
+  }
 
 
   async function chooseImage() {
@@ -268,6 +289,7 @@ export default function App() {
         .slice(-5000);
 
       const payloadMessages = [
+        ...(customInstructions.trim() ? [{ role: 'system', content: 'User custom instructions (follow when safe and relevant): ' + customInstructions.trim().slice(0, 1500) }] : []),
         ...(codingMode ? [{ role: 'system', content: 'CODING MODE: Act as an expert senior software engineer and patient coding tutor. Understand the user’s goal before coding. Provide correct, runnable, complete code (not vague snippets) when they ask to build something; preserve existing project structure and explain exactly which file to edit and where. For bug fixes, identify the likely root cause, give the corrected full relevant file or precise patch, and explain how to test it. Use current best practices, safe input handling, error states, accessibility, and mobile-friendly UI when relevant. Do not invent APIs or claim you ran the code. If essential details are missing, ask one concise question; otherwise make sensible assumptions and state them. For Hindi/Hinglish requests, explain simply in Hinglish. When a task is large, deliver a working first milestone and then continue incrementally.' }] : []),
         ...(previousContext ? [{
           role: 'system',
@@ -392,6 +414,12 @@ export default function App() {
           <Text style={{ color: '#A3A4B4', marginTop: 6 }}>{session?.user?.email || 'No email available'}</Text>
           <Text style={{ color: '#77798B', marginTop: 18, fontSize: 12 }}>Your account details</Text>
           <TouchableOpacity onPress={() => setShowProfile(false)} style={{ marginTop: 24, backgroundColor: '#272433', padding: 14, borderRadius: 12, alignItems: 'center' }}><Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Back to chat</Text></TouchableOpacity>
+        </View> : showSettings ? <View style={{ flex: 1, padding: 18 }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 23, fontWeight: '800', marginBottom: 8 }}>Personalization</Text>
+          <Text style={{ color: '#A3A4B4', marginBottom: 12 }}>Tell Nova how you prefer responses. Saved on this device (max 1,500 characters).</Text>
+          <TextInput value={customInstructions} onChangeText={setCustomInstructions} multiline placeholder="Example: Reply in simple Hinglish. Keep answers short and explain step by step." placeholderTextColor="#77798B" style={{ minHeight: 150, maxHeight: 240, color: '#FFFFFF', backgroundColor: '#22232D', borderRadius: 13, padding: 14, textAlignVertical: 'top' }} />
+          <TouchableOpacity onPress={saveCustomInstructions} style={{ marginTop: 12, backgroundColor: '#7659F5', padding: 14, borderRadius: 12, alignItems: 'center' }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>Save instructions</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowSettings(false)} style={{ padding: 14, alignItems: 'center' }}><Text style={{ color: '#A3A4B4' }}>Back to chat</Text></TouchableOpacity>
         </View> : showVoiceSettings ? <View style={{ flex: 1, padding: 16 }}>
           <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginBottom: 6 }}>Voice settings</Text>
           <Text style={{ color: '#A3A4B4', marginBottom: 14 }}>Choose an available voice. Hindi/Hinglish replies use Hindi voices when supported.</Text>
@@ -443,8 +471,12 @@ export default function App() {
               ['◇', 'Brainstorm ideas', 'Plan a project or solve a problem']
             ].map(([icon, title, subtitle]) => <TouchableOpacity key={title} onPress={() => setInput(title === 'Write something' ? 'Help me write ' : title === 'Learn a topic' ? 'Explain ' : 'Give me ideas for ')} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1C1D27', borderWidth: 1, borderColor: '#30313E', borderRadius: 16, padding: 13, marginBottom: 9 }}><View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: '#302A48', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}><Text style={{ color: '#C9BDFF', fontSize: 18 }}>{icon}</Text></View><View style={{ flex: 1 }}><Text style={{ color: '#F5F5FA', fontWeight: '700' }}>{title}</Text><Text style={{ color: '#9092A3', fontSize: 12, marginTop: 3 }}>{subtitle}</Text></View><Text style={{ color: '#77798B', fontSize: 20 }}>›</Text></TouchableOpacity>)}</View>
         </View> : <FlatList ref={listRef} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" style={{ flex: 1, paddingHorizontal: 14 }} data={messages} keyExtractor={(_, i) => String(i)} renderItem={bubble} contentContainerStyle={{ paddingVertical: 14, paddingBottom: 24 }} onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })} onLayout={() => listRef.current?.scrollToEnd({ animated: false })} />}
-        {!showHistory && !showVoiceSettings && !showAuth && !showProfile ? <>{busy ? <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10 }}><ActivityIndicator color="#A99BFF" /><Text style={{ color: '#A3A4B4', marginLeft: 9 }}>Nova is thinking...</Text></View> : null}
+        {!showHistory && !showVoiceSettings && !showSettings && !showAuth && !showProfile ? <>{busy ? <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10 }}><ActivityIndicator color="#A99BFF" /><Text style={{ color: '#A3A4B4', marginLeft: 9 }}>Nova is thinking...</Text></View> : null}
         {image ? <View style={{ paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center' }}><Image source={{ uri: image.uri }} style={{ width: 56, height: 56, borderRadius: 10 }} /><TouchableOpacity onPress={() => setImage(null)}><Text style={{ color: '#FF9A9A', marginLeft: 12 }}>Remove image</Text></TouchableOpacity></View> : null}
+        <View style={{ paddingHorizontal: 12, paddingTop: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <TouchableOpacity onPress={() => setTemporaryChat(v => !v)} style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9, backgroundColor: temporaryChat ? '#45366B' : '#22232D' }}><Text style={{ color: temporaryChat ? '#E4DBFF' : '#A3A4B4', fontSize: 11, fontWeight: '700' }}>{temporaryChat ? '◉ Temporary chat ON' : '◯ Temporary chat'}</Text></TouchableOpacity>
+          <TouchableOpacity onPress={shareCurrentChat} style={{ paddingHorizontal: 10, paddingVertical: 7 }}><Text style={{ color: '#B9AFFF', fontSize: 11 }}>↗ Share chat</Text></TouchableOpacity>
+        </View>
         <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: '#282936', flexDirection: 'row', alignItems: 'flex-end' }}>
           <TouchableOpacity onPress={chooseImage} style={{ backgroundColor: '#282936', padding: 13, borderRadius: 15, marginRight: 8 }}><Text style={{ color: '#D5CEFF', fontSize: 18 }}>＋</Text></TouchableOpacity>
           <TextInput value={input} onChangeText={setInput} placeholder="Message Nova AI..." placeholderTextColor="#77798B" multiline
@@ -466,9 +498,11 @@ export default function App() {
             </View> : <Text style={{ color: '#A3A4B4', marginBottom: 16 }}>You are using Nova AI as a guest.</Text>}
             <TouchableOpacity onPress={newChat} style={{ padding: 14, backgroundColor: '#2B2740', borderRadius: 12, marginBottom: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '700' }}>＋  New chat</Text></TouchableOpacity>
             {session ? <>
-              <TouchableOpacity onPress={() => { setShowProfile(true); setShowMenu(false); setShowHistory(false); setShowVoiceSettings(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>♙  Profile</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowSettings(true); setShowMenu(false); setShowHistory(false); setShowVoiceSettings(false); setShowProfile(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>⚙  Personalization</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowProfile(true); setShowMenu(false); setShowHistory(false); setShowVoiceSettings(false); setShowSettings(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>♙  Profile</Text></TouchableOpacity>
               <TouchableOpacity onPress={() => { setShowHistory(true); setShowMenu(false); setShowProfile(false); setShowVoiceSettings(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>◷  Chat history</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => { setShowVoiceSettings(true); setShowMenu(false); setShowHistory(false); setShowProfile(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>♫  Voice settings</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowSettings(true); setShowMenu(false); setShowHistory(false); setShowVoiceSettings(false); setShowProfile(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>⚙  Personalization</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowVoiceSettings(true); setShowMenu(false); setShowHistory(false); setShowProfile(false); setShowSettings(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>♫  Voice settings</Text></TouchableOpacity>
               <View style={{ flex: 1 }} />
               <TouchableOpacity onPress={logout} style={{ padding: 14, borderRadius: 12, backgroundColor: '#342327' }}><Text style={{ color: '#FFB5B5', fontWeight: '700' }}>↪  Log out</Text></TouchableOpacity>
             </> : <>
