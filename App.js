@@ -34,9 +34,15 @@ export default function App() {
     (async () => {
       try {
         const savedSession = await AsyncStorage.getItem(AUTH_KEY);
-        if (savedSession) setSession(JSON.parse(savedSession));
+        if (savedSession) {
+          const parsedSession = JSON.parse(savedSession);
+          setSession(parsedSession);
+          if (parsedSession?.access_token && parsedSession?.user?.id) {
+            await loadCloudChats(parsedSession);
+          }
+        }
         const saved = JSON.parse((await AsyncStorage.getItem(STORAGE_KEY)) || '[]');
-        setChats(saved);
+        setChats(current => current.length ? current : saved);
         const latest = saved[0];
         if (latest) { setChatId(latest.id); setMessages(latest.messages || []); }
       } catch {}
@@ -78,6 +84,7 @@ export default function App() {
       await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(data));
       setSession(data);
       setPassword('');
+      await loadCloudChats(data);
     } catch (error) {
       Alert.alert('Account error', error.message);
     } finally {
@@ -99,11 +106,56 @@ export default function App() {
     setMessages([]);
   }
 
+  async function loadCloudChats(activeSession) {
+    try {
+      const url = SUPABASE_URL + '/rest/v1/nova_chat_history?select=id,title,messages,updated_at&user_id=eq.' +
+        encodeURIComponent(activeSession.user.id) + '&order=updated_at.desc&limit=30';
+      const response = await fetch(url, {
+        headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + activeSession.access_token }
+      });
+      if (!response.ok) return;
+      const rows = await response.json();
+      const cloudChats = rows.map(row => ({
+        id: row.id, title: row.title, messages: row.messages || [],
+        updatedAt: new Date(row.updated_at).getTime()
+      }));
+      const local = JSON.parse((await AsyncStorage.getItem(STORAGE_KEY)) || '[]');
+      const merged = [...cloudChats, ...local.filter(item => !cloudChats.some(cloud => cloud.id === item.id))]
+        .sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 30);
+      setChats(merged);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      if (cloudChats.length && messages.length === 0) {
+        setChatId(cloudChats[0].id);
+        setMessages(cloudChats[0].messages || []);
+      }
+    } catch {}
+  }
+
   async function persist(nextMessages, nextId = chatId) {
     const nextChats = [{ id: nextId, title: nextMessages.find(m => m.role === 'user')?.content?.slice(0, 32) || 'New chat',
       updatedAt: Date.now(), messages: nextMessages }, ...chats.filter(c => c.id !== nextId)].slice(0, 30);
     setChats(nextChats);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextChats));
+    if (session?.access_token && session?.user?.id) {
+      try {
+        await fetch(SUPABASE_URL + '/rest/v1/nova_chat_history?on_conflict=id', {
+          method: 'POST',
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: 'Bearer ' + session.access_token,
+            'Content-Type': 'application/json',
+            Prefer: 'resolution=merge-duplicates,return=minimal'
+          },
+          body: JSON.stringify({
+            id: nextId,
+            user_id: session.user.id,
+            title: nextChats[0].title,
+            messages: nextMessages,
+            updated_at: new Date().toISOString()
+          })
+        });
+      } catch {}
+    }
   }
 
   function newChat() { setMessages([]); setImage(null); setChatId(String(Date.now())); }
