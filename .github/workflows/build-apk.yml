@@ -42,6 +42,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Install SDK-compatible splash screen package
+        run: npx expo install expo-splash-screen
+
       - name: Verify Android JavaScript bundle
         run: npx expo export --platform android
 
