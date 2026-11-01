@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as Speech from 'expo-speech';
 import Constants from 'expo-constants';
+import * as Clipboard from 'expo-clipboard';
 
 const API_BASE = Constants.expoConfig?.extra?.apiBaseUrl || '';
 const STORAGE_KEY = 'nova_ai_chats_v1';
@@ -297,6 +298,15 @@ export default function App() {
     } finally { setBusy(false); }
   }
 
+  async function copyReply(text) {
+    try {
+      await Clipboard.setStringAsync(String(text || ''));
+      Alert.alert('Copied', 'Nova AI ka reply clipboard mein copy ho gaya.');
+    } catch (error) {
+      Alert.alert('Copy failed', 'Text copy nahi ho paya. Dobara try karo.');
+    }
+  }
+
   function speak(text) {
     const value = String(text || '');
     const isHindi = /[\u0900-\u097F]/.test(value);
@@ -339,9 +349,10 @@ export default function App() {
       padding: 13, marginVertical: 6, borderBottomRightRadius: item.role === 'user' ? 5 : 18 }}>
       {item.imageUri ? <Image source={{ uri: item.imageUri }} style={{ width: 190, height: 140, borderRadius: 12, marginBottom: 8 }} /> : null}
       {renderFormattedText(item.content)}
-      {item.role === 'assistant' ? <TouchableOpacity onPress={() => speak(item.content)} style={{ marginTop: 9 }}>
-        <Text style={{ color: '#B9AFFF', fontSize: 12 }}>▶ Read aloud</Text>
-      </TouchableOpacity> : null}
+      {item.role === 'assistant' ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 9, gap: 16 }}>
+        <TouchableOpacity onPress={() => speak(item.content)}><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▶ Read aloud</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => copyReply(item.content)} accessibilityLabel="Copy Nova reply"><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▢ Copy</Text></TouchableOpacity>
+      </View> : null}
     </View>
   );
 
