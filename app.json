@@ -8,7 +8,9 @@
     "newArchEnabled": true,
     "android": {
       "package": "com.novaai.assistant",
-      "permissions": ["INTERNET"],
+      "permissions": [
+        "INTERNET"
+      ],
       "softwareKeyboardLayoutMode": "resize"
     },
     "extra": {
@@ -16,6 +18,20 @@
       "eas": {
         "projectId": "ccb3c978-b949-416c-bf1a-d04410f327f2"
       }
-    }
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/nova-splash.png",
+          "imageWidth": 190,
+          "resizeMode": "contain",
+          "backgroundColor": "#090D1F",
+          "dark": {
+            "backgroundColor": "#090D1F"
+          }
+        }
+      ]
+    ]
   }
 }
