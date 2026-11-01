@@ -328,7 +328,7 @@ export default function App() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#11121A' }}>
       <StatusBar barStyle="light-content" backgroundColor="#11121A" />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={Platform.OS === 'android' ? 24 : 0}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
         <View style={{ minHeight: 68, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#282936' }}>
           <TouchableOpacity accessibilityLabel="Open menu" onPress={() => setShowMenu(true)} style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: '#272433', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
             <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>☰</Text>
