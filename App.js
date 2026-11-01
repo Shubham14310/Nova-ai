@@ -351,7 +351,7 @@ export default function App() {
           <TouchableOpacity accessibilityLabel="Open menu" onPress={() => setShowMenu(true)} style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: '#272433', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
             <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>☰</Text>
           </TouchableOpacity>
-          <View style={{ flex: 1 }}><Text style={{ color: '#FFFFFF', fontSize: 21, fontWeight: '800' }}>✦ Nova AI</Text><Text style={{ color: '#9293A4', fontSize: 11 }}>Your AI assistant</Text></View>
+          <View style={{ flex: 1 }}><Text style={{ color: '#FFFFFF', fontSize: 21, fontWeight: '800' }}>Nova <Text style={{ color: '#A99BFF' }}>✦</Text></Text><Text style={{ color: '#9293A4', fontSize: 11 }}>AI assistant · Ready to help</Text></View>
           <TouchableOpacity onPress={newChat} style={{ backgroundColor: '#272433', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 }}>
             <Text style={{ color: '#D8D1FF', fontWeight: '700' }}>＋ New</Text>
           </TouchableOpacity>
@@ -419,12 +419,15 @@ export default function App() {
             </View>
           </View> : null}
         </View> : messages.length === 0 ? <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 28 }}>
-          <Text style={{ fontSize: 48, color: '#9C88FF' }}>✦</Text>
-          <Text style={{ color: '#FFFFFF', fontSize: 27, fontWeight: '800', marginTop: 12 }}>Hello, I'm Nova.</Text>
-          <Text style={{ color: '#A3A4B4', textAlign: 'center', marginTop: 10, lineHeight: 22 }}>Ask me anything. Let's make something great together.</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: 24 }}>
-            {['Explain something', 'Write a story', 'Help me learn'].map(t => <TouchableOpacity key={t} onPress={() => setInput(t)} style={{ borderColor: '#393747', borderWidth: 1, borderRadius: 20, padding: 10, margin: 4 }}><Text style={{ color: '#C8C3DC' }}>{t}</Text></TouchableOpacity>)}
-          </View>
+          <View style={{ width: 76, height: 76, borderRadius: 26, backgroundColor: '#29243D', borderWidth: 1, borderColor: '#51466F', alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: 38, color: '#B8A9FF' }}>✦</Text></View>
+          <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '800', marginTop: 18 }}>What can I help with?</Text>
+          <Text style={{ color: '#A3A4B4', textAlign: 'center', marginTop: 9, lineHeight: 22 }}>Ask a question, share an image, or start with an idea.</Text>
+          <View style={{ width: '100%', marginTop: 28 }}>
+            {[
+              ['✎', 'Write something', 'Draft a message, story or caption'],
+              ['⌕', 'Learn a topic', 'Explain it in simple words'],
+              ['◇', 'Brainstorm ideas', 'Plan a project or solve a problem']
+            ].map(([icon, title, subtitle]) => <TouchableOpacity key={title} onPress={() => setInput(title === 'Write something' ? 'Help me write ' : title === 'Learn a topic' ? 'Explain ' : 'Give me ideas for ')} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1C1D27', borderWidth: 1, borderColor: '#30313E', borderRadius: 16, padding: 13, marginBottom: 9 }}><View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: '#302A48', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}><Text style={{ color: '#C9BDFF', fontSize: 18 }}>{icon}</Text></View><View style={{ flex: 1 }}><Text style={{ color: '#F5F5FA', fontWeight: '700' }}>{title}</Text><Text style={{ color: '#9092A3', fontSize: 12, marginTop: 3 }}>{subtitle}</Text></View><Text style={{ color: '#77798B', fontSize: 20 }}>›</Text></TouchableOpacity>)}</View>
         </View> : <FlatList ref={listRef} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" style={{ flex: 1, paddingHorizontal: 14 }} data={messages} keyExtractor={(_, i) => String(i)} renderItem={bubble} contentContainerStyle={{ paddingVertical: 14, paddingBottom: 24 }} onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })} onLayout={() => listRef.current?.scrollToEnd({ animated: false })} />}
         {!showHistory && !showVoiceSettings && !showAuth && !showProfile ? <>{busy ? <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10 }}><ActivityIndicator color="#A99BFF" /><Text style={{ color: '#A3A4B4', marginLeft: 9 }}>Nova is thinking...</Text></View> : null}
         {image ? <View style={{ paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center' }}><Image source={{ uri: image.uri }} style={{ width: 56, height: 56, borderRadius: 10 }} /><TouchableOpacity onPress={() => setImage(null)}><Text style={{ color: '#FF9A9A', marginLeft: 12 }}>Remove image</Text></TouchableOpacity></View> : null}
