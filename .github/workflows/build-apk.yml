@@ -33,17 +33,31 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Verify Android JavaScript bundle
+        run: npx expo export --platform android
+
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive
 
-      - name: Build standalone release APK with embedded JavaScript bundle
-        working-directory: android
-        run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon
+      # Debug builds normally expect Metro. Force Gradle to embed the JS bundle.
+      - name: Configure standalone debug APK bundle
+        run: |
+          grep -q '^react {' android/app/build.gradle
+          sed -i '/^react {/a\    debuggableVariants = []' android/app/build.gradle
+          grep -A 3 '^react {' android/app/build.gradle
 
-      - name: Upload standalone APK
+      - name: Build installable APK with embedded JavaScript
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/generated/assets/createBundleDebugJsAndAssets/index.android.bundle
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Nova-AI-release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: Nova-AI-standalone-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
