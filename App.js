@@ -16,6 +16,7 @@ const SUPABASE_URL = 'https://icnhaeqdqxrckbfsxmne.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_nvQsuah4Kru_3MPA-MhrLA_XhFSRvB8';
 
 export default function App() {
+  const [showLaunchSplash, setShowLaunchSplash] = useState(true);
   const [messages, setMessages] = useState([]);
   const [chats, setChats] = useState([]);
   const [input, setInput] = useState('');
@@ -44,6 +45,11 @@ export default function App() {
   const [customInstructions, setCustomInstructions] = useState('');
   const [temporaryChat, setTemporaryChat] = useState(false);
   const listRef = useRef(null);
+
+  useEffect(() => {
+    const splashTimer = setTimeout(() => setShowLaunchSplash(false), 1900);
+    return () => clearTimeout(splashTimer);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -534,6 +540,12 @@ export default function App() {
           <TouchableOpacity onPress={() => setShowMenu(false)} style={{ flex: 1 }} />
         </View> : null}
       </KeyboardAvoidingView>
+      {showLaunchSplash ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, elevation: 100, backgroundColor: '#090D1F', alignItems: 'center', justifyContent: 'center' }}>
+        <Image source={require('./assets/nova-splash.png')} resizeMode="contain" style={{ width: 190, height: 190, marginBottom: 22 }} />
+        <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: '800', letterSpacing: 1 }}>Nova AI</Text>
+        <Text style={{ color: '#A9B8E8', fontSize: 13, marginTop: 9, letterSpacing: 1.2 }}>YOUR INTELLIGENT ASSISTANT</Text>
+        <ActivityIndicator color="#7D9BFF" size="small" style={{ marginTop: 30 }} />
+      </View> : null}
     </SafeAreaView>
   );
 }
