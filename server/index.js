@@ -31,14 +31,18 @@ const NOVA_SYSTEM_PROMPT = `You are Nova AI, a capable, warm, honest assistant.
 - If a request is unsafe, explain briefly and offer a safe alternative.
 - Be useful and direct. Do not repeat generic disclaimers unnecessarily.`;
 
+function getLastUserText(messages) {
+  const lastUser = [...messages].reverse().find(message => message?.role === 'user');
+  if (typeof lastUser?.content === 'string') return lastUser.content;
+  if (Array.isArray(lastUser?.content)) return lastUser.content.filter(part => part?.type === 'text').map(part => part.text).join(' ');
+  return '';
+}
+
 function mayNeedLiveSearch(messages) {
-  const last = messages[messages.length - 1];
-  const raw = typeof last?.content === 'string'
-    ? last.content
-    : Array.isArray(last?.content)
-      ? last.content.filter(p => p?.type === 'text').map(p => p.text).join(' ')
-      : '';
-  return /\b(latest|today|yesterday|tomorrow|current|currently|recent|news|price|stock|weather|forecast|202[5-9]|202[6-9]|202[0-9]|update|release|version|score|result|who is the president)\b|आज|अभी|ताज़ा|लेटेस्ट|मौसम|भाव|कीमत|समाचार|न्यूज़|अपडेट|वर्तमान/i.test(raw);
+  const raw = getLastUserText(messages);
+  const explicitSearch = /search|look up|browse|find online|google it|search karo|dhundo|dhoondo|internet par|online check|सर्च|खोजो|ढूंढो|ढूँढो|ऑनलाइन खोज/i;
+  const freshness = /latest|today|yesterday|tomorrow|current|recent|news|price|stock|weather|forecast|202[0-9]|update|release|version|score|result|आज|अभी|ताज़ा|लेटेस्ट|मौसम|भाव|कीमत|समाचार|न्यूज़|अपडेट|वर्तमान/i;
+  return explicitSearch.test(raw) || freshness.test(raw);
 }
 
 async function searchWeb(query) {
@@ -88,16 +92,15 @@ app.post('/api/chat', async (req, res) => {
     );
 
     let liveContext = '';
-    let liveSearchError = false;
-    if (!hasImage && mayNeedLiveSearch(messages)) {
+    let liveSearchError = null;
+    const liveSearchRequested = !hasImage && mayNeedLiveSearch(messages);
+    if (liveSearchRequested) {
       try {
-        const last = messages[messages.length - 1];
-        const query = typeof last?.content === 'string'
-          ? last.content
-          : last.content.filter(p => p?.type === 'text').map(p => p.text).join(' ');
-        liveContext = await searchWeb(query) || '';
+        liveContext = await searchWeb(getLastUserText(messages)) || '';
+        if (!TAVILY_API_KEY) liveSearchError = 'Live search is not configured on this server.';
+        else if (!liveContext) liveSearchError = 'No live search results were returned.';
       } catch (searchError) {
-        liveContext = '';
+        liveSearchError = searchError.message || 'Live search failed.';
       }
     }
 
@@ -131,7 +134,10 @@ app.post('/api/chat', async (req, res) => {
 
     res.json({
       reply: data.choices?.[0]?.message?.content || 'No reply generated.',
-      liveSearchUsed: Boolean(liveContext)
+      liveSearchUsed: Boolean(liveContext),
+      liveSearchConfigured: Boolean(TAVILY_API_KEY),
+      liveSearchRequested,
+      liveSearchError
     });
   } catch (error) {
     res.status(500).json({ error: 'Backend error: ' + error.message });
