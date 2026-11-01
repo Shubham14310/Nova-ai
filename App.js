@@ -22,6 +22,9 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [chatId, setChatId] = useState(String(Date.now()));
   const [showHistory, setShowHistory] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [session, setSession] = useState(null);
   const [authMode, setAuthMode] = useState('login');
   const [email, setEmail] = useState('');
@@ -101,6 +104,9 @@ export default function App() {
       await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(data));
       setSession(data);
       setPassword('');
+      setShowAuth(false);
+      setShowProfile(false);
+      setShowMenu(false);
       await loadCloudChats(data);
     } catch (error) {
       Alert.alert('Account error', error.message);
@@ -121,6 +127,9 @@ export default function App() {
     await AsyncStorage.removeItem(AUTH_KEY);
     setSession(null);
     setMessages([]);
+    setShowAuth(false);
+    setShowProfile(false);
+    setShowMenu(false);
   }
 
   async function loadCloudChats(activeSession) {
@@ -175,7 +184,7 @@ export default function App() {
     }
   }
 
-  function newChat() { setMessages([]); setImage(null); setChatId(String(Date.now())); }
+  function newChat() { setMessages([]); setImage(null); setChatId(String(Date.now())); setShowHistory(false); setShowVoiceSettings(false); setShowAuth(false); setShowProfile(false); setShowMenu(false); }
 
   async function chooseImage() {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -292,21 +301,38 @@ export default function App() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#11121A' }}>
       <StatusBar barStyle="light-content" backgroundColor="#11121A" />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={Platform.OS === 'android' ? 24 : 0}>
-        <View style={{ minHeight: 76, paddingTop: 10, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, borderBottomWidth: 1, borderBottomColor: '#282936' }}>
-          <View><Text style={{ color: '#FFFFFF', fontSize: 21, fontWeight: '800' }}>✦ Nova AI</Text><Text style={{ color: '#9293A4', fontSize: 11 }}>Your AI assistant</Text></View>
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-            <TouchableOpacity onPress={() => { setShowVoiceSettings(v => !v); setShowHistory(false); }} style={{ backgroundColor: '#272433', paddingHorizontal: 11, paddingVertical: 9, borderRadius: 12 }}>
-              <Text style={{ color: '#D8D1FF', fontWeight: '600' }}>Voice</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowHistory(v => !v)} style={{ backgroundColor: '#272433', paddingHorizontal: 11, paddingVertical: 9, borderRadius: 12 }}>
-              <Text style={{ color: '#D8D1FF', fontWeight: '600' }}>History</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={newChat} style={{ backgroundColor: '#272433', paddingHorizontal: 11, paddingVertical: 9, borderRadius: 12 }}>
-              <Text style={{ color: '#D8D1FF', fontWeight: '600' }}>＋ New</Text>
-            </TouchableOpacity>
-          </View>
+        <View style={{ minHeight: 68, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#282936' }}>
+          <TouchableOpacity accessibilityLabel="Open menu" onPress={() => setShowMenu(true)} style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: '#272433', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>☰</Text>
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}><Text style={{ color: '#FFFFFF', fontSize: 21, fontWeight: '800' }}>✦ Nova AI</Text><Text style={{ color: '#9293A4', fontSize: 11 }}>Your AI assistant</Text></View>
+          <TouchableOpacity onPress={newChat} style={{ backgroundColor: '#272433', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 }}>
+            <Text style={{ color: '#D8D1FF', fontWeight: '700' }}>＋ New</Text>
+          </TouchableOpacity>
         </View>
-        {showVoiceSettings ? <View style={{ flex: 1, padding: 16 }}>
+        {showAuth ? <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 27, fontWeight: '800', marginBottom: 8 }}>{authMode === 'signup' ? 'Create your account' : 'Welcome back'}</Text>
+          <Text style={{ color: '#A3A4B4', marginBottom: 22 }}>{authMode === 'signup' ? 'Sign up to sync your chats across devices.' : 'Log in to access your saved chats.'}</Text>
+          {authMode === 'signup' ? <TextInput value={displayName} onChangeText={setDisplayName} placeholder="Your name" placeholderTextColor="#77798B" autoCapitalize="words" style={{ color: '#FFFFFF', backgroundColor: '#22232D', borderRadius: 13, padding: 15, marginBottom: 12 }} /> : null}
+          <TextInput value={email} onChangeText={setEmail} placeholder="Email address" placeholderTextColor="#77798B" keyboardType="email-address" autoCapitalize="none" style={{ color: '#FFFFFF', backgroundColor: '#22232D', borderRadius: 13, padding: 15, marginBottom: 12 }} />
+          <TextInput value={password} onChangeText={setPassword} placeholder="Password (minimum 6 characters)" placeholderTextColor="#77798B" secureTextEntry style={{ color: '#FFFFFF', backgroundColor: '#22232D', borderRadius: 13, padding: 15, marginBottom: 16 }} />
+          <TouchableOpacity onPress={authenticate} disabled={authBusy} style={{ backgroundColor: '#7659F5', padding: 15, borderRadius: 13, alignItems: 'center', opacity: authBusy ? 0.6 : 1 }}>
+            {authBusy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{authMode === 'signup' ? 'Create account' : 'Log in'}</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => { setAuthMode(authMode === 'signup' ? 'login' : 'signup'); setPassword(''); }} style={{ padding: 16, alignItems: 'center' }}>
+            <Text style={{ color: '#C8C3DC' }}>{authMode === 'signup' ? 'Already have an account? Log in' : "Don't have an account? Sign up"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowAuth(false)} style={{ padding: 8, alignItems: 'center' }}><Text style={{ color: '#9293A4' }}>Back to chat</Text></TouchableOpacity>
+        </View> : showProfile ? <View style={{ flex: 1, padding: 24 }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 25, fontWeight: '800', marginBottom: 24 }}>Profile</Text>
+          <View style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: '#6547E8', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 30, fontWeight: '800' }}>{(session?.user?.user_metadata?.display_name || session?.user?.email || 'U').charAt(0).toUpperCase()}</Text>
+          </View>
+          <Text style={{ color: '#FFFFFF', fontSize: 19, fontWeight: '700' }}>{session?.user?.user_metadata?.display_name || 'Nova AI user'}</Text>
+          <Text style={{ color: '#A3A4B4', marginTop: 6 }}>{session?.user?.email || 'No email available'}</Text>
+          <Text style={{ color: '#77798B', marginTop: 18, fontSize: 12 }}>Your account details</Text>
+          <TouchableOpacity onPress={() => setShowProfile(false)} style={{ marginTop: 24, backgroundColor: '#272433', padding: 14, borderRadius: 12, alignItems: 'center' }}><Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Back to chat</Text></TouchableOpacity>
+        </View> : showVoiceSettings ? <View style={{ flex: 1, padding: 16 }}>
           <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginBottom: 6 }}>Voice settings</Text>
           <Text style={{ color: '#A3A4B4', marginBottom: 14 }}>Choose an available voice. Hindi/Hinglish replies use Hindi voices when supported.</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#20212A', borderRadius: 13, padding: 14, marginBottom: 12 }}>
@@ -340,7 +366,7 @@ export default function App() {
             {['Explain something', 'Write a story', 'Help me learn'].map(t => <TouchableOpacity key={t} onPress={() => setInput(t)} style={{ borderColor: '#393747', borderWidth: 1, borderRadius: 20, padding: 10, margin: 4 }}><Text style={{ color: '#C8C3DC' }}>{t}</Text></TouchableOpacity>)}
           </View>
         </View> : <FlatList ref={listRef} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" style={{ flex: 1, paddingHorizontal: 14 }} data={messages} keyExtractor={(_, i) => String(i)} renderItem={bubble} contentContainerStyle={{ paddingVertical: 14, paddingBottom: 24 }} onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })} onLayout={() => listRef.current?.scrollToEnd({ animated: false })} />}
-        {!showHistory && !showVoiceSettings ? <>{busy ? <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10 }}><ActivityIndicator color="#A99BFF" /><Text style={{ color: '#A3A4B4', marginLeft: 9 }}>Nova is thinking...</Text></View> : null}
+        {!showHistory && !showVoiceSettings && !showAuth && !showProfile ? <>{busy ? <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10 }}><ActivityIndicator color="#A99BFF" /><Text style={{ color: '#A3A4B4', marginLeft: 9 }}>Nova is thinking...</Text></View> : null}
         {image ? <View style={{ paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center' }}><Image source={{ uri: image.uri }} style={{ width: 56, height: 56, borderRadius: 10 }} /><TouchableOpacity onPress={() => setImage(null)}><Text style={{ color: '#FF9A9A', marginLeft: 12 }}>Remove image</Text></TouchableOpacity></View> : null}
         <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: '#282936', flexDirection: 'row', alignItems: 'flex-end' }}>
           <TouchableOpacity onPress={chooseImage} style={{ backgroundColor: '#282936', padding: 13, borderRadius: 15, marginRight: 8 }}><Text style={{ color: '#D5CEFF', fontSize: 18 }}>＋</Text></TouchableOpacity>
@@ -349,6 +375,34 @@ export default function App() {
           <TouchableOpacity onPress={send} disabled={busy} style={{ backgroundColor: '#7659F5', paddingHorizontal: 16, paddingVertical: 15, borderRadius: 15, marginLeft: 8, opacity: busy ? 0.5 : 1 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>↑</Text></TouchableOpacity>
         </View>
         <Text style={{ color: '#696B7B', fontSize: 10, textAlign: 'center', paddingBottom: 7 }}>Nova AI can make mistakes. Check important information.</Text></> : null}
+        {showMenu ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 30, elevation: 30, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.58)' }}>
+          <View style={{ width: '82%', maxWidth: 330, backgroundColor: '#191A24', paddingTop: 18, paddingHorizontal: 18, paddingBottom: 24 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 21, fontWeight: '800' }}>✦ Nova AI</Text>
+              <TouchableOpacity onPress={() => setShowMenu(false)} style={{ padding: 8 }}><Text style={{ color: '#C8C3DC', fontSize: 22 }}>×</Text></TouchableOpacity>
+            </View>
+            {session ? <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#242330', borderRadius: 14, marginBottom: 16 }}>
+              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#6547E8', alignItems: 'center', justifyContent: 'center', marginRight: 11 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800' }}>{(session?.user?.user_metadata?.display_name || session?.user?.email || 'U').charAt(0).toUpperCase()}</Text>
+              </View>
+              <View style={{ flex: 1 }}><Text numberOfLines={1} style={{ color: '#FFFFFF', fontWeight: '700' }}>{session?.user?.user_metadata?.display_name || 'Account'}</Text><Text numberOfLines={1} style={{ color: '#A3A4B4', fontSize: 11, marginTop: 3 }}>{session?.user?.email}</Text></View>
+            </View> : <Text style={{ color: '#A3A4B4', marginBottom: 16 }}>You are using Nova AI as a guest.</Text>}
+            <TouchableOpacity onPress={newChat} style={{ padding: 14, backgroundColor: '#2B2740', borderRadius: 12, marginBottom: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '700' }}>＋  New chat</Text></TouchableOpacity>
+            {session ? <>
+              <TouchableOpacity onPress={() => { setShowProfile(true); setShowMenu(false); setShowHistory(false); setShowVoiceSettings(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>♙  Profile</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowHistory(true); setShowMenu(false); setShowProfile(false); setShowVoiceSettings(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>◷  Chat history</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowVoiceSettings(true); setShowMenu(false); setShowHistory(false); setShowProfile(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>♫  Voice settings</Text></TouchableOpacity>
+              <View style={{ flex: 1 }} />
+              <TouchableOpacity onPress={logout} style={{ padding: 14, borderRadius: 12, backgroundColor: '#342327' }}><Text style={{ color: '#FFB5B5', fontWeight: '700' }}>↪  Log out</Text></TouchableOpacity>
+            </> : <>
+              <TouchableOpacity onPress={() => { setAuthMode('login'); setShowAuth(true); setShowMenu(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5', fontWeight: '700' }}>Log in</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setAuthMode('signup'); setShowAuth(true); setShowMenu(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5', fontWeight: '700' }}>Create account / Sign up</Text></TouchableOpacity>
+              <View style={{ flex: 1 }} />
+              <Text style={{ color: '#77798B', fontSize: 11, paddingBottom: 8 }}>Sign in to sync your chat history.</Text>
+            </>}
+          </View>
+          <TouchableOpacity onPress={() => setShowMenu(false)} style={{ flex: 1 }} />
+        </View> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
