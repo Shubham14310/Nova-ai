@@ -151,11 +151,22 @@ export default function App() {
       });
       if (!response.ok) return;
       const rows = await response.json();
-      const cloudChats = rows.map(row => ({
-        id: row.id, title: row.title, messages: row.messages || [],
-        updatedAt: new Date(row.updated_at).getTime()
-      }));
       const local = JSON.parse((await AsyncStorage.getItem(STORAGE_KEY)) || '[]');
+      const cloudChats = rows.map(row => {
+        const localChat = local.find(item => item.id === row.id);
+        const cloudMessages = row.messages || [];
+        const hydratedMessages = cloudMessages.map((message, index) => {
+          const localMessage = localChat?.messages?.[index];
+          return localMessage?.imageBase64
+            ? { ...message, imageUri: localMessage.imageUri, imageBase64: localMessage.imageBase64, imageMimeType: localMessage.imageMimeType || 'image/jpeg' }
+            : message;
+        });
+        return {
+          id: row.id, title: row.title,
+          messages: localChat?.updatedAt >= new Date(row.updated_at).getTime() ? localChat.messages : hydratedMessages,
+          updatedAt: Math.max(localChat?.updatedAt || 0, new Date(row.updated_at).getTime())
+        };
+      });
       const merged = [...cloudChats, ...local.filter(item => !cloudChats.some(cloud => cloud.id === item.id))]
         .sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 30);
       setChats(merged);
@@ -188,7 +199,7 @@ export default function App() {
             id: nextId,
             user_id: session.user.id,
             title: nextChats[0].title,
-            messages: nextMessages,
+            messages: nextMessages.map(({ imageBase64, imageUri, ...message }) => message),
             updated_at: new Date().toISOString()
           })
         });
@@ -242,10 +253,9 @@ export default function App() {
       Alert.alert('Backend not connected', 'Deploy the server and add its HTTPS URL in app.json first.');
       return;
     }
-    const userMessage = { role: 'user', content: text || 'Please describe this image.', imageUri: image?.uri };
+    const userMessage = { role: 'user', content: text || 'Please describe this image.', imageUri: image?.uri, imageBase64: image?.base64, imageMimeType: image?.mimeType || 'image/jpeg' };
     const next = [...messages, userMessage];
     setMessages(next); setInput(''); setBusy(true);
-    const selectedImage = image;
     setImage(null);
     try {
       // Save the user's message immediately so it is not lost if the network fails.
@@ -295,15 +305,24 @@ export default function App() {
           role: 'system',
           content: 'Context from recent earlier chats on this device. Use only when relevant; details may be outdated. Trust the user’s latest correction and do not repeat private details unnecessarily.\\n' + previousContext
         }] : []),
-        ...next.map((m, i) => {
-        if (m.role !== 'user' || !m.imageUri || i !== next.length - 1 || !selectedImage?.base64) {
-          return { role: m.role, content: m.content };
-        }
-        return { role: 'user', content: [
-          { type: 'text', text: m.content },
-          { type: 'image_url', image_url: { url: `data:${selectedImage.mimeType || 'image/jpeg'};base64,${selectedImage.base64}` } }
-        ]};
-        })
+        ...(() => {
+          const imageIndexes = next
+            .map((message, index) => message.role === 'user' && message.imageBase64 ? index : -1)
+            .filter(index => index >= 0)
+            .slice(-2);
+          return next.map((message, index) => {
+            if (message.role !== 'user' || !imageIndexes.includes(index)) {
+              return { role: message.role, content: message.content };
+            }
+            return {
+              role: 'user',
+              content: [
+                { type: 'text', text: message.content || 'Please describe this image.' },
+                { type: 'image_url', image_url: { url: `data:${message.imageMimeType || 'image/jpeg'};base64,${message.imageBase64}` } }
+              ]
+            };
+          });
+        })()
       ];
       const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/chat`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
