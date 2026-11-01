@@ -28,7 +28,24 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const [availableVoices, setAvailableVoices] = useState([]);
+  const [selectedVoice, setSelectedVoice] = useState(null);
+  const [speechRate, setSpeechRate] = useState(0.95);
   const listRef = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const savedVoice = await AsyncStorage.getItem('nova_ai_voice_v1');
+        if (savedVoice) setSelectedVoice(JSON.parse(savedVoice));
+        const savedRate = await AsyncStorage.getItem('nova_ai_voice_rate_v1');
+        if (savedRate) setSpeechRate(Math.max(0.6, Math.min(1.2, Number(savedRate) || 0.95)));
+        const voices = await Speech.getAvailableVoicesAsync();
+        setAvailableVoices(Array.isArray(voices) ? voices : []);
+      } catch {}
+    })();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -227,7 +244,21 @@ export default function App() {
     const value = String(text || '');
     const isHindi = /[\u0900-\u097F]/.test(value);
     const isHinglish = /\b(kya|kaise|kyun|hai|hain|nahi|haan|aap|mera|mujhe|karna|batao)\b/i.test(value);
-    Speech.speak(value, { language: isHindi || isHinglish ? 'hi-IN' : 'en-IN', rate: 0.95 });
+    const language = isHindi || isHinglish ? 'hi-IN' : 'en-IN';
+    const voice = selectedVoice && (!selectedVoice.language || selectedVoice.language.toLowerCase().startsWith(language.slice(0, 2))) ? selectedVoice : null;
+    Speech.stop();
+    Speech.speak(value, { language, voice: voice?.identifier, rate: speechRate });
+  }
+
+  async function chooseVoice(voice) {
+    setSelectedVoice(voice);
+    await AsyncStorage.setItem('nova_ai_voice_v1', JSON.stringify(voice));
+  }
+
+  async function changeSpeechRate(nextRate) {
+    const rate = Math.max(0.6, Math.min(1.2, Number(nextRate.toFixed(2))));
+    setSpeechRate(rate);
+    await AsyncStorage.setItem('nova_ai_voice_rate_v1', String(rate));
   }
 
   function renderFormattedText(content) {
@@ -261,9 +292,12 @@ export default function App() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#11121A' }}>
       <StatusBar barStyle="light-content" backgroundColor="#11121A" />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={Platform.OS === 'android' ? 24 : 0}>
-        <View style={{ height: 62, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, borderBottomWidth: 1, borderBottomColor: '#282936' }}>
+        <View style={{ minHeight: 76, paddingTop: 10, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, borderBottomWidth: 1, borderBottomColor: '#282936' }}>
           <View><Text style={{ color: '#FFFFFF', fontSize: 21, fontWeight: '800' }}>✦ Nova AI</Text><Text style={{ color: '#9293A4', fontSize: 11 }}>Your AI assistant</Text></View>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => { setShowVoiceSettings(v => !v); setShowHistory(false); }} style={{ backgroundColor: '#272433', paddingHorizontal: 11, paddingVertical: 9, borderRadius: 12 }}>
+              <Text style={{ color: '#D8D1FF', fontWeight: '600' }}>Voice</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowHistory(v => !v)} style={{ backgroundColor: '#272433', paddingHorizontal: 11, paddingVertical: 9, borderRadius: 12 }}>
               <Text style={{ color: '#D8D1FF', fontWeight: '600' }}>History</Text>
             </TouchableOpacity>
@@ -272,7 +306,23 @@ export default function App() {
             </TouchableOpacity>
           </View>
         </View>
-        {showHistory ? <View style={{ flex: 1, padding: 16 }}>
+        {showVoiceSettings ? <View style={{ flex: 1, padding: 16 }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginBottom: 6 }}>Voice settings</Text>
+          <Text style={{ color: '#A3A4B4', marginBottom: 14 }}>Choose an available voice. Hindi/Hinglish replies use Hindi voices when supported.</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#20212A', borderRadius: 13, padding: 14, marginBottom: 12 }}>
+            <View><Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Voice speed</Text><Text style={{ color: '#A3A4B4', marginTop: 4 }}>{speechRate.toFixed(2)}×</Text></View>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity onPress={() => changeSpeechRate(speechRate - 0.1)} style={{ backgroundColor: '#393449', padding: 10, borderRadius: 9 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>−</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => changeSpeechRate(speechRate + 0.1)} style={{ backgroundColor: '#393449', padding: 10, borderRadius: 9 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>＋</Text></TouchableOpacity>
+            </View>
+          </View>
+          <TouchableOpacity onPress={() => speak('Hello! Main Nova AI hoon. Aap mujhse Hindi ya English mein baat kar sakte hain.')} style={{ backgroundColor: '#6547E8', padding: 13, borderRadius: 12, marginBottom: 14 }}><Text style={{ color: '#FFFFFF', textAlign: 'center', fontWeight: '700' }}>▶ Preview voice</Text></TouchableOpacity>
+          <Text style={{ color: '#FFFFFF', fontWeight: '700', marginBottom: 8 }}>Available voices ({availableVoices.length})</Text>
+          <FlatList data={availableVoices} keyExtractor={(item, index) => item.identifier || String(index)} ListEmptyComponent={<Text style={{ color: '#A3A4B4' }}>No voice list is available on this device yet. Android system text-to-speech voices will be used.</Text>} renderItem={({ item }) => {
+            const active = selectedVoice?.identifier === item.identifier;
+            return <TouchableOpacity onPress={() => chooseVoice(item)} style={{ padding: 13, backgroundColor: active ? '#393052' : '#20212A', borderRadius: 11, marginBottom: 7, borderWidth: active ? 1 : 0, borderColor: '#9C88FF' }}><Text style={{ color: '#FFFFFF', fontWeight: '600' }}>{item.name || item.identifier}</Text><Text style={{ color: '#A3A4B4', fontSize: 11, marginTop: 3 }}>{item.language || 'Unknown language'} {active ? ' • Selected' : ''}</Text></TouchableOpacity>;
+          }} />
+        </View> : showHistory ? <View style={{ flex: 1, padding: 16 }}>
           <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginBottom: 12 }}>Chat history</Text>
           {chats.length === 0 ? <Text style={{ color: '#A3A4B4' }}>Your saved chats will appear here.</Text> :
             <FlatList data={chats} keyExtractor={item => item.id} renderItem={({ item }) => (
@@ -290,7 +340,7 @@ export default function App() {
             {['Explain something', 'Write a story', 'Help me learn'].map(t => <TouchableOpacity key={t} onPress={() => setInput(t)} style={{ borderColor: '#393747', borderWidth: 1, borderRadius: 20, padding: 10, margin: 4 }}><Text style={{ color: '#C8C3DC' }}>{t}</Text></TouchableOpacity>)}
           </View>
         </View> : <FlatList ref={listRef} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" style={{ flex: 1, paddingHorizontal: 14 }} data={messages} keyExtractor={(_, i) => String(i)} renderItem={bubble} contentContainerStyle={{ paddingVertical: 14, paddingBottom: 24 }} onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })} onLayout={() => listRef.current?.scrollToEnd({ animated: false })} />}
-        {!showHistory ? <>{busy ? <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10 }}><ActivityIndicator color="#A99BFF" /><Text style={{ color: '#A3A4B4', marginLeft: 9 }}>Nova is thinking...</Text></View> : null}
+        {!showHistory && !showVoiceSettings ? <>{busy ? <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10 }}><ActivityIndicator color="#A99BFF" /><Text style={{ color: '#A3A4B4', marginLeft: 9 }}>Nova is thinking...</Text></View> : null}
         {image ? <View style={{ paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center' }}><Image source={{ uri: image.uri }} style={{ width: 56, height: 56, borderRadius: 10 }} /><TouchableOpacity onPress={() => setImage(null)}><Text style={{ color: '#FF9A9A', marginLeft: 12 }}>Remove image</Text></TouchableOpacity></View> : null}
         <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: '#282936', flexDirection: 'row', alignItems: 'flex-end' }}>
           <TouchableOpacity onPress={chooseImage} style={{ backgroundColor: '#282936', padding: 13, borderRadius: 15, marginRight: 8 }}><Text style={{ color: '#D5CEFF', fontSize: 18 }}>＋</Text></TouchableOpacity>
