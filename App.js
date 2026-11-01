@@ -396,14 +396,28 @@ export default function App() {
           }} />
         </View> : showHistory ? <View style={{ flex: 1, padding: 16 }}>
           <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginBottom: 12 }}>Chat history</Text>
+          <TextInput value={historySearch} onChangeText={setHistorySearch} placeholder="Search chats or messages..." placeholderTextColor="#77798B" style={{ color: '#FFFFFF', backgroundColor: '#22232D', borderRadius: 12, padding: 12, marginBottom: 12 }} />
           {chats.length === 0 ? <Text style={{ color: '#A3A4B4' }}>Your saved chats will appear here.</Text> :
-            <FlatList data={chats} keyExtractor={item => item.id} renderItem={({ item }) => (
-              <TouchableOpacity onPress={() => { setChatId(item.id); setMessages(item.messages || []); setShowHistory(false); }}
-                style={{ padding: 14, backgroundColor: '#20212A', borderRadius: 13, marginBottom: 8 }}>
-                <Text style={{ color: '#F5F5FA', fontWeight: '600' }}>{item.title || 'Chat'}</Text>
-                <Text style={{ color: '#8F91A2', fontSize: 11, marginTop: 4 }}>{new Date(item.updatedAt).toLocaleString()}</Text>
-              </TouchableOpacity>
+            <FlatList data={chats.filter(item => (item.title || '').toLowerCase().includes(historySearch.trim().toLowerCase()) || (item.messages || []).some(m => String(m.content || '').toLowerCase().includes(historySearch.trim().toLowerCase())))} keyExtractor={item => item.id} renderItem={({ item }) => (
+              <View style={{ padding: 13, backgroundColor: '#20212A', borderRadius: 13, marginBottom: 8 }}>
+                <TouchableOpacity onPress={() => { setChatId(item.id); setMessages(item.messages || []); setShowHistory(false); }}>
+                  <Text style={{ color: '#F5F5FA', fontWeight: '600' }}>{item.title || 'Chat'}</Text>
+                  <Text style={{ color: '#8F91A2', fontSize: 11, marginTop: 4 }}>{new Date(item.updatedAt).toLocaleString()}</Text>
+                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', marginTop: 10 }}>
+                  <TouchableOpacity onPress={() => { setEditingChat(item.id); setChatTitleInput(item.title || ''); }} style={{ paddingHorizontal: 11, paddingVertical: 7, borderRadius: 8, backgroundColor: '#393449', marginRight: 8 }}><Text style={{ color: '#D8D1FF', fontSize: 12 }}>Rename</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteChat(item.id)} style={{ paddingHorizontal: 11, paddingVertical: 7, borderRadius: 8, backgroundColor: '#39272D' }}><Text style={{ color: '#FFB5B5', fontSize: 12 }}>Delete</Text></TouchableOpacity>
+                </View>
+              </View>
             )} />}
+          {editingChat ? <View style={{ position: 'absolute', left: 16, right: 16, top: 110, zIndex: 40, elevation: 40, backgroundColor: '#292834', padding: 16, borderRadius: 15 }}>
+            <Text style={{ color: '#FFFFFF', fontWeight: '800', marginBottom: 10 }}>Rename chat</Text>
+            <TextInput value={chatTitleInput} onChangeText={setChatTitleInput} placeholder="Chat name" placeholderTextColor="#77798B" style={{ color: '#FFFFFF', backgroundColor: '#1B1C25', padding: 12, borderRadius: 10 }} />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
+              <TouchableOpacity onPress={() => setEditingChat(null)} style={{ padding: 10 }}><Text style={{ color: '#A3A4B4' }}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => updateChatTitle(editingChat, chatTitleInput)} style={{ backgroundColor: '#7659F5', padding: 10, borderRadius: 9, marginLeft: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Save</Text></TouchableOpacity>
+            </View>
+          </View> : null}
         </View> : messages.length === 0 ? <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 28 }}>
           <Text style={{ fontSize: 48, color: '#9C88FF' }}>✦</Text>
           <Text style={{ color: '#FFFFFF', fontSize: 27, fontWeight: '800', marginTop: 12 }}>Hello, I'm Nova.</Text>
