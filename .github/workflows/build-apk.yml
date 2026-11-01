@@ -29,5 +29,7 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+      - name: Verify Android JavaScript bundle
+        run: npx expo export --platform android
       - name: Build Android APK
         run: eas build --platform android --profile preview --non-interactive
