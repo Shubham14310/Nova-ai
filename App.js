@@ -35,6 +35,7 @@ export default function App() {
   const [displayName, setDisplayName] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const [codingMode, setCodingMode] = useState(false);
   const [availableVoices, setAvailableVoices] = useState([]);
   const [selectedVoice, setSelectedVoice] = useState(null);
   const [speechRate, setSpeechRate] = useState(0.95);
@@ -266,6 +267,7 @@ export default function App() {
         .slice(-5000);
 
       const payloadMessages = [
+        ...(codingMode ? [{ role: 'system', content: 'CODING MODE: Act as an expert senior software engineer and patient coding tutor. Understand the user’s goal before coding. Provide correct, runnable, complete code (not vague snippets) when they ask to build something; preserve existing project structure and explain exactly which file to edit and where. For bug fixes, identify the likely root cause, give the corrected full relevant file or precise patch, and explain how to test it. Use current best practices, safe input handling, error states, accessibility, and mobile-friendly UI when relevant. Do not invent APIs or claim you ran the code. If essential details are missing, ask one concise question; otherwise make sensible assumptions and state them. For Hindi/Hinglish requests, explain simply in Hinglish. When a task is large, deliver a working first milestone and then continue incrementally.' }] : []),
         ...(previousContext ? [{
           role: 'system',
           content: 'Context from recent earlier chats on this device. Use only when relevant; details may be outdated. Trust the user’s latest correction and do not repeat private details unnecessarily.\\n' + previousContext
@@ -352,6 +354,7 @@ export default function App() {
             <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>☰</Text>
           </TouchableOpacity>
           <View style={{ flex: 1 }}><Text style={{ color: '#FFFFFF', fontSize: 21, fontWeight: '800' }}>Nova <Text style={{ color: '#A99BFF' }}>✦</Text></Text><Text style={{ color: '#9293A4', fontSize: 11 }}>AI assistant · Ready to help</Text></View>
+          <TouchableOpacity onPress={() => setCodingMode(value => !value)} style={{ backgroundColor: codingMode ? '#3A315B' : '#272433', paddingHorizontal: 10, paddingVertical: 10, borderRadius: 12, marginRight: 7 }}><Text style={{ color: codingMode ? '#D8CEFF' : '#B9B6C8', fontWeight: '700', fontSize: 12 }}>{codingMode ? '⌘ Code ON' : '⌘ Code'}</Text></TouchableOpacity>
           <TouchableOpacity onPress={newChat} style={{ backgroundColor: '#272433', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 }}>
             <Text style={{ color: '#D8D1FF', fontWeight: '700' }}>＋ New</Text>
           </TouchableOpacity>
