@@ -179,6 +179,9 @@ app.post('/api/chat', async (req, res) => {
           { role: 'system', content: systemContent },
           ...messages
         ],
+        // Nova currently uses server-side Tavily search, not Groq function tools.
+        // Explicitly disable model tool calls to avoid tool-choice mismatch errors.
+        tool_choice: 'none',
         temperature: 0.5,
         max_tokens: 3000
       })
@@ -191,8 +194,14 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
+    const assistantMessage = data.choices?.[0]?.message;
+    const replyText = typeof assistantMessage?.content === 'string' ? assistantMessage.content.trim() : '';
+    if (!replyText) {
+      return res.status(502).json({ error: 'The AI returned no text reply. Please retry; if this repeats, check the configured Groq model.' });
+    }
+
     res.json({
-      reply: data.choices?.[0]?.message?.content || 'No reply generated.',
+      reply: replyText,
       liveSearchUsed: Boolean(liveContext),
       liveSearchConfigured: Boolean(TAVILY_API_KEY),
       liveSearchRequested,
