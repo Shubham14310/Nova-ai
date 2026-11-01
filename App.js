@@ -22,6 +22,9 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [chatId, setChatId] = useState(String(Date.now()));
   const [showHistory, setShowHistory] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
+  const [editingChat, setEditingChat] = useState(null);
+  const [chatTitleInput, setChatTitleInput] = useState('');
   const [showMenu, setShowMenu] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -158,7 +161,8 @@ export default function App() {
   }
 
   async function persist(nextMessages, nextId = chatId) {
-    const nextChats = [{ id: nextId, title: nextMessages.find(m => m.role === 'user')?.content?.slice(0, 32) || 'New chat',
+    const existingTitle = chats.find(c => c.id === nextId)?.title;
+    const nextChats = [{ id: nextId, title: existingTitle || nextMessages.find(m => m.role === 'user')?.content?.slice(0, 32) || 'New chat',
       updatedAt: Date.now(), messages: nextMessages }, ...chats.filter(c => c.id !== nextId)].slice(0, 30);
     setChats(nextChats);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextChats));
@@ -184,6 +188,20 @@ export default function App() {
     }
   }
 
+  async function updateChatTitle(id, title) {
+    const cleaned = title.trim().slice(0, 60); if (!cleaned) return;
+    const updated = chats.map(chat => chat.id === id ? { ...chat, title: cleaned, updatedAt: Date.now() } : chat);
+    setChats(updated); await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    if (session?.access_token) { try { await fetch(SUPABASE_URL + '/rest/v1/nova_chat_history?id=eq.' + encodeURIComponent(id), { method: 'PATCH', headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify({ title: cleaned, updated_at: new Date().toISOString() }) }); } catch {} }
+    setEditingChat(null);
+  }
+  async function deleteChat(id) {
+    Alert.alert('Delete chat?', 'Remove this chat?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: async () => {
+      const updated = chats.filter(chat => chat.id !== id); setChats(updated); await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      if (session?.access_token) { try { await fetch(SUPABASE_URL + '/rest/v1/nova_chat_history?id=eq.' + encodeURIComponent(id), { method: 'DELETE', headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + session.access_token } }); } catch {} }
+      if (chatId === id) { setMessages([]); setChatId(String(Date.now())); }
+    }}]);
+  }
   function newChat() { setMessages([]); setImage(null); setChatId(String(Date.now())); setShowHistory(false); setShowVoiceSettings(false); setShowAuth(false); setShowProfile(false); setShowMenu(false); }
 
 
