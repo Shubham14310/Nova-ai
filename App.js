@@ -210,13 +210,13 @@ export default function App() {
       // Save the user's message immediately so it is not lost if the network fails.
       await persist(next);
       // Detect image requests in English, Hindi and Hinglish from the normal chat composer.
-      const imageIntent = /(?:\\b(?:generate|create|draw|make|paint)\\b.{0,100}\\b(?:image|picture|photo|art|illustration)\\b)|(?:\\b(?:image|picture|photo|art|illustration|tasveer|tasvir)\\b.{0,100}\\b(?:bana(?:o|do)?|bana\\s*do|banado|create|generate|draw)\\b)|(?:\\b(?:bana(?:o|do)?|bana\\s*do|banado|make|create|generate|draw)\\b.{0,100}\\b(?:image|picture|photo|art|illustration|tasveer|tasvir)\\b)|(?:(?:फोटो|तस्वीर|इमेज|चित्र).{0,100}(?:बना|बनाओ|बना\\s*दो|तैयार))|(?:(?:बना|बनाओ|बना\\s*दो|तैयार).{0,100}(?:फोटो|तस्वीर|इमेज|चित्र))/i;
+      const imageIntent = /(?:\\b(?:generate|create|draw|make|paint)\\b.{0,100}\\b(?:image|picture|photo|art|illustration)\\b)|(?:\\b(?:image|picture|photo|art|illustration|tasveer|tasvir)\\b.{0,100}\\b(?:bana(?:o|do)?|bana\s*do|banado|create|generate|draw)\\b)|(?:\\b(?:bana(?:o|do)?|bana\s*do|banado|make|create|generate|draw)\\b.{0,100}\\b(?:image|picture|photo|art|illustration|tasveer|tasvir)\\b)|(?:(?:फोटो|तस्वीर|इमेज|चित्र).{0,100}(?:बना|बनाओ|बना\\s*दो|तैयार))|(?:(?:बना|बनाओ|बना\\s*दो|तैयार).{0,100}(?:फोटो|तस्वीर|इमेज|चित्र))/i;
       if (imageIntent.test(text)) {
         const prompt = text
           .replace(/^(?:please\\s+)?(?:generate|create|draw|make|paint)(?:\\s+me)?\\s+(?:an?\\s+)?(?:image|picture|photo|art|illustration)(?:\\s+(?:of|for))?\\s*/i, '')
           .replace(/^(?:ek|एक)\\s+/i, '')
-          .replace(/\\s+(?:ki|ka|ke)?\\s*(?:image|picture|photo|tasveer|tasvir|फोटो|तस्वीर|इमेज|चित्र)\\s*(?:banao|bana\\s*do|banado|बनाओ|बना\\s*दो)\\s*$/i, '')
-          .replace(/\\s+(?:banao|bana\\s*do|banado|बनाओ|बना\\s*दो)\\s*$/i, '')
+          .replace(/\\s+(?:ki|ka|ke)?\\s*(?:image|picture|photo|tasveer|tasvir|फोटो|तस्वीर|इमेज|चित्र)\\s*(?:banao|bana\s*do|banado|बनाओ|बना\\s*दो)\\s*$/i, '')
+          .replace(/\\s+(?:banao|bana\s*do|banado|बनाओ|बना\\s*दो)\\s*$/i, '')
           .trim() || text;
         try {
           const imageResponse = await fetch(`${API_BASE.replace(/\\/+$/, '')}/api/images/generate`, {
