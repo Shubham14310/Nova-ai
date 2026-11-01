@@ -75,6 +75,45 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.post('/api/images/generate', async (req, res) => {
+  try {
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_API_KEY) {
+      return res.status(503).json({ error: 'Image generation is not configured. An authorized project owner must add OPENAI_API_KEY to the backend environment.' });
+    }
+    const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
+    if (!prompt) return res.status(400).json({ error: 'An image prompt is required.' });
+    if (prompt.length > 4000) return res.status(400).json({ error: 'Please keep the image prompt under 4,000 characters.' });
+
+    const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-flare',
+        prompt,
+        size: '1024x1024',
+        quality: 'medium',
+        output_format: 'webp',
+        n: 1
+      })
+    });
+    const data = await imageResponse.json();
+    if (!imageResponse.ok) {
+      return res.status(imageResponse.status).json({
+        error: data?.error?.message || 'The image provider could not generate this image.'
+      });
+    }
+    const imageBase64 = data?.data?.[0]?.b64_json;
+    if (!imageBase64) return res.status(502).json({ error: 'The image provider returned an empty image.' });
+    res.json({ imageBase64, mimeType: 'image/webp', model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-flare' });
+  } catch (error) {
+    res.status(500).json({ error: 'Image generation error: ' + error.message });
+  }
+});
+
 app.post('/api/chat', async (req, res) => {
   try {
     if (!API_KEY) {
