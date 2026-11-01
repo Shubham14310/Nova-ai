@@ -75,40 +75,58 @@ app.get('/health', (req, res) => {
   });
 });
 
+const imageGenerationRequests = new Map();
+
 app.post('/api/images/generate', async (req, res) => {
   try {
-    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-    if (!OPENAI_API_KEY) {
-      return res.status(503).json({ error: 'Image generation is not configured. An authorized project owner must add OPENAI_API_KEY to the backend environment.' });
-    }
-    const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
-    if (!prompt) return res.status(400).json({ error: 'An image prompt is required.' });
-    if (prompt.length > 4000) return res.status(400).json({ error: 'Please keep the image prompt under 4,000 characters.' });
-
-    const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-flare',
-        prompt,
-        size: '1024x1024',
-        quality: 'medium',
-        output_format: 'webp',
-        n: 1
-      })
-    });
-    const data = await imageResponse.json();
-    if (!imageResponse.ok) {
-      return res.status(imageResponse.status).json({
-        error: data?.error?.message || 'The image provider could not generate this image.'
+    const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
+    if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_API_TOKEN) {
+      return res.status(503).json({
+        error: 'Free image generation is not configured yet. An authorized project owner must add CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN to the backend environment.'
       });
     }
-    const imageBase64 = data?.data?.[0]?.b64_json;
-    if (!imageBase64) return res.status(502).json({ error: 'The image provider returned an empty image.' });
-    res.json({ imageBase64, mimeType: 'image/webp', model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-flare' });
+
+    const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
+    if (!prompt) return res.status(400).json({ error: 'An image prompt is required.' });
+    if (prompt.length > 2048) return res.status(400).json({ error: 'Please keep the image prompt under 2,048 characters.' });
+
+    // Basic per-client throttling helps protect the shared free daily allowance.
+    const forwardedFor = req.headers['x-forwarded-for'];
+    const clientKey = (typeof forwardedFor === 'string' ? forwardedFor.split(',')[0].trim() : req.ip) || 'unknown';
+    const now = Date.now();
+    const recentRequests = (imageGenerationRequests.get(clientKey) || []).filter(time => now - time < 60 * 60 * 1000);
+    if (recentRequests.length >= 5) {
+      return res.status(429).json({ error: 'Image limit reached for this connection. Please try again later.' });
+    }
+    recentRequests.push(now);
+    imageGenerationRequests.set(clientKey, recentRequests);
+
+    const model = '@cf/black-forest-labs/flux-1-schnell';
+    const imageResponse = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(CLOUDFLARE_ACCOUNT_ID)}/ai/run/${encodeURIComponent(model)}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ prompt, steps: 4 })
+      }
+    );
+    const data = await imageResponse.json();
+    if (!imageResponse.ok || data?.success === false) {
+      const providerMessage = data?.errors?.[0]?.message || data?.error?.message;
+      return res.status(imageResponse.status || 502).json({
+        error: providerMessage || 'Cloudflare could not generate this image. Please try again later.'
+      });
+    }
+
+    const imageBase64 = data?.result?.image || data?.image;
+    if (!imageBase64 || typeof imageBase64 !== 'string') {
+      return res.status(502).json({ error: 'Cloudflare returned an empty image.' });
+    }
+    res.json({ imageBase64, mimeType: 'image/jpeg', model });
   } catch (error) {
     res.status(500).json({ error: 'Image generation error: ' + error.message });
   }
