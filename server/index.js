@@ -70,6 +70,7 @@ app.get('/health', (req, res) => {
     ok: true,
     service: 'Nova AI backend',
     liveSearchConfigured: Boolean(TAVILY_API_KEY),
+    imageGenerationConfigured: Boolean(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN),
     codeExecutionAvailable: false,
     persistentMemoryAvailable: false
   });
