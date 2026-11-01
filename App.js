@@ -235,11 +235,11 @@ export default function App() {
       // Save the user's message immediately so it is not lost if the network fails.
       await persist(next);
       // Image requests are handled directly from the normal chat composer.
-      const wantsImage = /\\b(generate|create|draw|make|generate me|create me)\\b.*\\b(image|picture|photo|art|illustration)\\b|\\b(image|picture|photo)\\b.*\\b(banao|banाओ|बनाओ|generate|create|draw)\\b|\\b(image|photo|tasveer)\\s*(bana|banao|generate)|\\b(ek|aik)\\s+.*\\s(image|tasveer)\\s*(bana|banao)/i.test(text);
+      const wantsImage = /\b(generate|create|draw|make|generate me|create me)\b.*\b(image|picture|photo|art|illustration)\b|\b(image|picture|photo)\b.*\b(banao|banाओ|बनाओ|generate|create|draw)\b|\b(image|photo|tasveer)\s*(bana|banao|generate)|\b(ek|aik)\s+.*\s(image|tasveer)\s*(bana|banao)/i.test(text);
       if (wantsImage) {
-        const prompt = text.replace(/^(please\\s+)?(generate|create|draw|make)\\s+(me\\s+)?(an?\\s+)?(image|picture|photo|art|illustration)\\s*(of|for)?\\s*/i, '').trim() || text;
+        const prompt = text.replace(/^(please\s+)?(generate|create|draw|make)\s+(me\s+)?(an?\s+)?(image|picture|photo|art|illustration)\s*(of|for)?\s*/i, '').trim() || text;
         try {
-          const imageResponse = await fetch(`${API_BASE.replace(/\\/+$/, '')}/api/images/generate`, {
+          const imageResponse = await fetch(`${API_BASE.replace(/\/+$/, '')}/api/images/generate`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt })
           });
@@ -445,7 +445,6 @@ export default function App() {
               <View style={{ flex: 1 }}><Text numberOfLines={1} style={{ color: '#FFFFFF', fontWeight: '700' }}>{session?.user?.user_metadata?.display_name || 'Account'}</Text><Text numberOfLines={1} style={{ color: '#A3A4B4', fontSize: 11, marginTop: 3 }}>{session?.user?.email}</Text></View>
             </View> : <Text style={{ color: '#A3A4B4', marginBottom: 16 }}>You are using Nova AI as a guest.</Text>}
             <TouchableOpacity onPress={newChat} style={{ padding: 14, backgroundColor: '#2B2740', borderRadius: 12, marginBottom: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '700' }}>＋  New chat</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => { setShowImageCreator(true); setShowMenu(false); setShowHistory(false); setShowVoiceSettings(false); setShowAuth(false); setShowProfile(false); }} style={{ padding: 14, borderRadius: 12, backgroundColor: '#242330', marginBottom: 8 }}><Text style={{ color: '#E6E2F5', fontWeight: '700' }}>✦  Create image</Text></TouchableOpacity>
             {session ? <>
               <TouchableOpacity onPress={() => { setShowProfile(true); setShowMenu(false); setShowHistory(false); setShowVoiceSettings(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>♙  Profile</Text></TouchableOpacity>
               <TouchableOpacity onPress={() => { setShowHistory(true); setShowMenu(false); setShowProfile(false); setShowVoiceSettings(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>◷  Chat history</Text></TouchableOpacity>
