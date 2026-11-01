@@ -223,7 +223,7 @@ export default function App() {
     } finally { setBusy(false); }
   }
 
-  function speak(text) { Speech.speak(text, { language: 'en-IN', rate: 0.95 }); }
+  function speak(text) {\n    const value = String(text || '');\n    const isHindi = /[\\u0900-\\u097F]/.test(value);\n    const isHinglish = /\\b(kya|kaise|kyun|hai|hain|nahi|haan|aap|mera|mujhe|karna|batao)\\b/i.test(value);\n    Speech.speak(value, { language: isHindi || isHinglish ? 'hi-IN' : 'en-IN', rate: 0.95 });\n  }
 
   function renderFormattedText(content) {
     const lines = String(content || '').split(/\r?\n/);
