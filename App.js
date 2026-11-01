@@ -12,6 +12,7 @@ import * as Clipboard from 'expo-clipboard';
 const API_BASE = Constants.expoConfig?.extra?.apiBaseUrl || '';
 const STORAGE_KEY = 'nova_ai_chats_v1';
 const AUTH_KEY = 'nova_ai_session_v1';
+const FREE_MESSAGES_KEY = 'nova_ai_guest_messages_v1';
 const SUPABASE_URL = 'https://icnhaeqdqxrckbfsxmne.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_nvQsuah4Kru_3MPA-MhrLA_XhFSRvB8';
 
@@ -255,6 +256,22 @@ export default function App() {
   async function send() {
     const text = input.trim();
     if ((!text && !image) || busy) return;
+    // Guests get three free user messages total on this device, then must sign up.
+    if (!session) {
+      const used = Number(await AsyncStorage.getItem(FREE_MESSAGES_KEY) || '0');
+      if (used >= 3) {
+        setAuthMode('signup');
+        setShowAuth(true);
+        setShowHistory(false);
+        setShowProfile(false);
+        setShowSettings(false);
+        setShowVoiceSettings(false);
+        setShowMenu(false);
+        Alert.alert('Free messages used', 'Aapke 3 free messages complete ho gaye. Continue karne ke liye free account banayein.');
+        return;
+      }
+      await AsyncStorage.setItem(FREE_MESSAGES_KEY, String(used + 1));
+    }
     if (!API_BASE || API_BASE.includes('YOUR-BACKEND')) {
       Alert.alert('Backend not connected', 'Deploy the server and add its HTTPS URL in app.json first.');
       return;
