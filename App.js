@@ -32,10 +32,6 @@ export default function App() {
   const [displayName, setDisplayName] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
-  const [showImageCreator, setShowImageCreator] = useState(false);
-  const [imagePrompt, setImagePrompt] = useState('');
-  const [generatedImage, setGeneratedImage] = useState(null);
-  const [imageBusy, setImageBusy] = useState(false);
   const [availableVoices, setAvailableVoices] = useState([]);
   const [selectedVoice, setSelectedVoice] = useState(null);
   const [speechRate, setSpeechRate] = useState(0.95);
@@ -188,29 +184,8 @@ export default function App() {
     }
   }
 
-  function newChat() { setMessages([]); setImage(null); setChatId(String(Date.now())); setShowHistory(false); setShowVoiceSettings(false); setShowImageCreator(false); setGeneratedImage(null); setShowAuth(false); setShowProfile(false); setShowMenu(false); }
+  function newChat() { setMessages([]); setImage(null); setChatId(String(Date.now())); setShowHistory(false); setShowVoiceSettings(false); setShowAuth(false); setShowProfile(false); setShowMenu(false); }
 
-  async function generateImage() {
-    const prompt = imagePrompt.trim();
-    if (!prompt || imageBusy) return;
-    if (!API_BASE) { Alert.alert('Backend not connected', 'Nova AI backend is not configured.'); return; }
-    setImageBusy(true);
-    setGeneratedImage(null);
-    try {
-      const response = await fetch(`${API_BASE.replace(/\/+$/, '')}/api/images/generate`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Image generation failed');
-      if (!data.imageBase64) throw new Error('The image service returned no image.');
-      setGeneratedImage(`data:${data.mimeType || 'image/webp'};base64,${data.imageBase64}`);
-    } catch (error) {
-      Alert.alert('Could not create image', error.message);
-    } finally {
-      setImageBusy(false);
-    }
-  }
 
   async function chooseImage() {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -234,24 +209,29 @@ export default function App() {
     try {
       // Save the user's message immediately so it is not lost if the network fails.
       await persist(next);
-      // Image requests are handled directly from the normal chat composer.
-      const wantsImage = /(?:\b(?:generate|create|draw|make|design)\b.{0,100}\b(?:image|picture|photo|art|illustration)\b)|(?:\b(?:image|picture|photo|art|illustration|tasveer|tasvir|फोटो|तस्वीर|इमेज|चित्र)\b.{0,70}\b(?:bana|banao|banado|bana\s+do|generate|create|draw|बनाओ|बना\s+दो)\b)|(?:\b(?:banao|banado|bana\s+do)\b.{0,70}\b(?:image|picture|photo|tasveer|फोटो|तस्वीर|इमेज|चित्र)\b)|(?:बनाओ|बना\s+दो).{0,60}(?:फोटो|तस्वीर|इमेज|चित्र)/i.test(text);
-      if (wantsImage) {
-        const prompt = text.replace(/^(please\s+)?(generate|create|draw|make)\s+(me\s+)?(an?\s+)?(image|picture|photo|art|illustration)\s*(of|for)?\s*/i, '').trim() || text;
+      // Detect image requests in English, Hindi and Hinglish from the normal chat composer.
+      const imageIntent = /(?:\\b(?:generate|create|draw|make|paint)\\b.{0,100}\\b(?:image|picture|photo|art|illustration)\\b)|(?:\\b(?:image|picture|photo|art|illustration|tasveer|tasvir)\\b.{0,100}\\b(?:bana(?:o|do)?|banado|create|generate|draw)\\b)|(?:\\b(?:bana(?:o|do)?|banado|make|create|generate|draw)\\b.{0,100}\\b(?:image|picture|photo|art|illustration|tasveer|tasvir)\\b)|(?:(?:फोटो|तस्वीर|इमेज|चित्र).{0,100}(?:बना|बनाओ|बना\\s*दो|तैयार))|(?:(?:बना|बनाओ|बना\\s*दो|तैयार).{0,100}(?:फोटो|तस्वीर|इमेज|चित्र))/i;
+      if (imageIntent.test(text)) {
+        const prompt = text
+          .replace(/^(?:please\\s+)?(?:generate|create|draw|make|paint)(?:\\s+me)?\\s+(?:an?\\s+)?(?:image|picture|photo|art|illustration)(?:\\s+(?:of|for))?\\s*/i, '')
+          .replace(/^(?:ek|एक)\\s+/i, '')
+          .replace(/\\s+(?:ki|ka|ke)?\\s*(?:image|picture|photo|tasveer|tasvir|फोटो|तस्वीर|इमेज|चित्र)\\s*(?:banao|bana\\s*do|banado|बनाओ|बना\\s*दो)\\s*$/i, '')
+          .replace(/\\s+(?:banao|bana\\s*do|banado|बनाओ|बना\\s*दो)\\s*$/i, '')
+          .trim() || text;
         try {
-          const imageResponse = await fetch(`${API_BASE.replace(/\/+$/, '')}/api/images/generate`, {
+          const imageResponse = await fetch(`${API_BASE.replace(/\\/+$/, '')}/api/images/generate`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt })
           });
           const imageData = await imageResponse.json();
-          if (!imageResponse.ok) throw new Error(imageData.error || 'Image generation failed');
+          if (!imageResponse.ok) throw new Error(imageData.error || `Image generation failed (HTTP ${imageResponse.status})`);
           if (!imageData.imageBase64) throw new Error('Image service returned no image.');
-          const generated = { role: 'assistant', content: 'Here is your image ✨', imageUri: `data:${imageData.mimeType || 'image/jpeg'};base64,${imageData.imageBase64}` };
+          const generated = { role: 'assistant', content: 'Ye rahi aapki image ✨', imageUri: `data:${imageData.mimeType || 'image/jpeg'};base64,${imageData.imageBase64}` };
           const completed = [...next, generated];
           setMessages(completed); await persist(completed);
           return;
         } catch (imageError) {
-          const failed = [...next, { role: 'assistant', content: `Image generation unavailable: ${imageError.message}` }];
+          const failed = [...next, { role: 'assistant', content: `Image generate nahi ho paayi: ${imageError.message}` }];
           setMessages(failed); await persist(failed);
           return;
         }
@@ -380,15 +360,6 @@ export default function App() {
           <Text style={{ color: '#A3A4B4', marginTop: 6 }}>{session?.user?.email || 'No email available'}</Text>
           <Text style={{ color: '#77798B', marginTop: 18, fontSize: 12 }}>Your account details</Text>
           <TouchableOpacity onPress={() => setShowProfile(false)} style={{ marginTop: 24, backgroundColor: '#272433', padding: 14, borderRadius: 12, alignItems: 'center' }}><Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Back to chat</Text></TouchableOpacity>
-        </View> : showImageCreator ? <View style={{ flex: 1, padding: 18 }}>
-          <Text style={{ color: '#FFFFFF', fontSize: 25, fontWeight: '800', marginBottom: 8 }}>Create an image</Text>
-          <Text style={{ color: '#A3A4B4', lineHeight: 21, marginBottom: 16 }}>Describe the image you want Nova to create. Be clear about the subject, setting and style.</Text>
-          <TextInput value={imagePrompt} onChangeText={setImagePrompt} placeholder="Example: A peaceful futuristic city at sunset, cinematic digital art..." placeholderTextColor="#77798B" multiline textAlignVertical="top" style={{ minHeight: 112, maxHeight: 170, color: '#FFFFFF', backgroundColor: '#22232D', borderRadius: 14, padding: 15, fontSize: 15, marginBottom: 12 }} />
-          <TouchableOpacity onPress={generateImage} disabled={imageBusy || !imagePrompt.trim()} style={{ backgroundColor: '#7659F5', padding: 15, borderRadius: 13, alignItems: 'center', opacity: imageBusy || !imagePrompt.trim() ? 0.55 : 1 }}>
-            {imageBusy ? <View style={{ flexDirection: 'row', alignItems: 'center' }}><ActivityIndicator color="#FFFFFF" /><Text style={{ color: '#FFFFFF', fontWeight: '800', marginLeft: 9 }}>Creating image...</Text></View> : <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>✦ Generate image</Text>}
-          </TouchableOpacity>
-          {generatedImage ? <View style={{ marginTop: 20, flex: 1 }}><Text style={{ color: '#FFFFFF', fontWeight: '700', marginBottom: 10 }}>Your generated image</Text><Image source={{ uri: generatedImage }} resizeMode="contain" style={{ width: '100%', height: 320, borderRadius: 14, backgroundColor: '#20212A' }} /><Text style={{ color: '#A3A4B4', fontSize: 11, marginTop: 8 }}>This preview stays on this screen for now; image saving and chat-history storage can be added next.</Text></View> : null}
-          <TouchableOpacity onPress={() => { setShowImageCreator(false); setGeneratedImage(null); }} style={{ marginTop: 16, padding: 12, alignItems: 'center' }}><Text style={{ color: '#B9AFFF' }}>Back to chat</Text></TouchableOpacity>
         </View> : showVoiceSettings ? <View style={{ flex: 1, padding: 16 }}>
           <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginBottom: 6 }}>Voice settings</Text>
           <Text style={{ color: '#A3A4B4', marginBottom: 14 }}>Choose an available voice. Hindi/Hinglish replies use Hindi voices when supported.</Text>
@@ -423,7 +394,7 @@ export default function App() {
             {['Explain something', 'Write a story', 'Help me learn'].map(t => <TouchableOpacity key={t} onPress={() => setInput(t)} style={{ borderColor: '#393747', borderWidth: 1, borderRadius: 20, padding: 10, margin: 4 }}><Text style={{ color: '#C8C3DC' }}>{t}</Text></TouchableOpacity>)}
           </View>
         </View> : <FlatList ref={listRef} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" style={{ flex: 1, paddingHorizontal: 14 }} data={messages} keyExtractor={(_, i) => String(i)} renderItem={bubble} contentContainerStyle={{ paddingVertical: 14, paddingBottom: 24 }} onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })} onLayout={() => listRef.current?.scrollToEnd({ animated: false })} />}
-        {!showHistory && !showVoiceSettings && !showImageCreator && !showAuth && !showProfile ? <>{busy ? <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10 }}><ActivityIndicator color="#A99BFF" /><Text style={{ color: '#A3A4B4', marginLeft: 9 }}>Nova is thinking...</Text></View> : null}
+        {!showHistory && !showVoiceSettings && !showAuth && !showProfile ? <>{busy ? <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10 }}><ActivityIndicator color="#A99BFF" /><Text style={{ color: '#A3A4B4', marginLeft: 9 }}>Nova is thinking...</Text></View> : null}
         {image ? <View style={{ paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center' }}><Image source={{ uri: image.uri }} style={{ width: 56, height: 56, borderRadius: 10 }} /><TouchableOpacity onPress={() => setImage(null)}><Text style={{ color: '#FF9A9A', marginLeft: 12 }}>Remove image</Text></TouchableOpacity></View> : null}
         <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: '#282936', flexDirection: 'row', alignItems: 'flex-end' }}>
           <TouchableOpacity onPress={chooseImage} style={{ backgroundColor: '#282936', padding: 13, borderRadius: 15, marginRight: 8 }}><Text style={{ color: '#D5CEFF', fontSize: 18 }}>＋</Text></TouchableOpacity>
