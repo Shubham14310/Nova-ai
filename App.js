@@ -609,4 +609,4 @@ export default function App() {
             </View> : <Text style={{ color: '#A3A4B4', marginBottom: 16 }}>You are using Nova AI as a guest.</Text>}
             <TouchableOpacity onPress={newChat} style={{ padding: 14, backgroundColor: '#2B2740', borderRadius: 12, marginBottom: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '700' }}>＋  New chat</Text></TouchableOpacity>
             {session ? <>
-              <TouchableOpacity onPress={() => { setShowSettings(true); setShowMenu(false); setShowHistory(false); setShowVoiceSettings(false); setShowProfile(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>⚙  Personalization</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowSettings(true); setShowMenu(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>Personalization</Text></TouchableOpacity>
