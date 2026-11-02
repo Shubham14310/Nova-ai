@@ -474,6 +474,7 @@ export default function App() {
   }
 
   const bubble = ({ item, index }) => (
+    <>
     <View style={{ alignSelf: item.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%',
       backgroundColor: item.role === 'user' ? '#6547E8' : '#20212A', borderRadius: 18,
       padding: 13, marginVertical: 6, borderBottomRightRadius: item.role === 'user' ? 5 : 18 }}>
@@ -485,6 +486,7 @@ export default function App() {
       </View> : <TouchableOpacity onPress={async () => { const revised = messages.slice(0, index); setMessages(revised); setInput(String(item.content || '')); await persist(revised); }} style={{ marginTop: 8, alignSelf: 'flex-end' }}><Text style={{ color: '#D8D1FF', fontSize: 12 }}>✎ Edit</Text></TouchableOpacity>}
     </View>
     {item.role === 'assistant' && index === messages.length - 1 ? <SponsoredNativeAd enabled={adsReady} /> : null}
+    </>
   );
 
   return (
@@ -608,28 +610,3 @@ export default function App() {
             <TouchableOpacity onPress={newChat} style={{ padding: 14, backgroundColor: '#2B2740', borderRadius: 12, marginBottom: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '700' }}>＋  New chat</Text></TouchableOpacity>
             {session ? <>
               <TouchableOpacity onPress={() => { setShowSettings(true); setShowMenu(false); setShowHistory(false); setShowVoiceSettings(false); setShowProfile(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>⚙  Personalization</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => { setShowProfile(true); setShowMenu(false); setShowHistory(false); setShowVoiceSettings(false); setShowSettings(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>♙  Profile</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => { setShowHistory(true); setShowMenu(false); setShowProfile(false); setShowVoiceSettings(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>◷  Chat history</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => { setShowSettings(true); setShowMenu(false); setShowHistory(false); setShowVoiceSettings(false); setShowProfile(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>⚙  Personalization</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => { setShowVoiceSettings(true); setShowMenu(false); setShowHistory(false); setShowProfile(false); setShowSettings(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>♫  Voice settings</Text></TouchableOpacity>
-              <View style={{ flex: 1 }} />
-              <TouchableOpacity onPress={logout} style={{ padding: 14, borderRadius: 12, backgroundColor: '#342327' }}><Text style={{ color: '#FFB5B5', fontWeight: '700' }}>↪  Log out</Text></TouchableOpacity>
-            </> : <>
-              <TouchableOpacity onPress={() => { setAuthMode('login'); setShowAuth(true); setShowMenu(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5', fontWeight: '700' }}>Log in</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => { setAuthMode('signup'); setShowAuth(true); setShowMenu(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5', fontWeight: '700' }}>Create account / Sign up</Text></TouchableOpacity>
-              <View style={{ flex: 1 }} />
-              <Text style={{ color: '#77798B', fontSize: 11, paddingBottom: 8 }}>Sign in to sync your chat history.</Text>
-            </>}
-          </View>
-          <TouchableOpacity onPress={() => setShowMenu(false)} style={{ flex: 1 }} />
-        </View> : null}
-      </KeyboardAvoidingView>
-      {showLaunchSplash ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, elevation: 100, backgroundColor: '#090D1F', alignItems: 'center', justifyContent: 'center' }}>
-        <Image source={require('./assets/nova-splash.png')} resizeMode="contain" style={{ width: 190, height: 190, marginBottom: 22 }} />
-        <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: '800', letterSpacing: 1 }}>Nova AI</Text>
-        <Text style={{ color: '#A9B8E8', fontSize: 13, marginTop: 9, letterSpacing: 1.2 }}>YOUR INTELLIGENT ASSISTANT</Text>
-        <ActivityIndicator color="#7D9BFF" size="small" style={{ marginTop: 30 }} />
-      </View> : null}
-    </SafeAreaView>
-  );
-}
