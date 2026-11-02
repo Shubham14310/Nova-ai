@@ -8,7 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Speech from 'expo-speech';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
-import mobileAds, { AdsConsent, BannerAd, BannerAdSize, TestIds, MaxAdContentRating } from 'react-native-google-mobile-ads';
+import mobileAds, { BannerAd, BannerAdSize, TestIds, MaxAdContentRating } from 'react-native-google-mobile-ads';
 
 const API_BASE = Constants.expoConfig?.extra?.apiBaseUrl || '';
 const STORAGE_KEY = 'nova_ai_chats_v1';
@@ -53,20 +53,17 @@ export default function App() {
     let cancelled = false;
     (async () => {
       try {
-        // Test-only configuration. Keep ad requests suitable for younger audiences.
+        // TEST BUILD ONLY: Google sample app ID + TestIds.BANNER are used.
+        // Keep requests suitable for younger audiences.
         await mobileAds().setRequestConfiguration({
           maxAdContentRating: MaxAdContentRating.PG,
-          tagForUnderAgeOfConsent: true
+          tagForUnderAgeOfConsent: true,
+          tagForChildDirectedTreatment: false
         });
-        await AdsConsent.gatherConsent();
-        const consent = await AdsConsent.getConsentInfo();
-        if (!cancelled && consent.canRequestAds) {
-          await mobileAds().initialize();
-          if (!cancelled) setAdsReady(true);
-        }
+        await mobileAds().initialize();
+        if (!cancelled) setAdsReady(true);
       } catch (error) {
-        // Ads remain hidden if consent or SDK setup is unavailable.
-        console.warn('Nova AI test ads are unavailable:', error?.message || error);
+        console.warn('Nova AI test ads SDK initialization failed:', error?.message || error);
       }
     })();
     return () => { cancelled = true; };
