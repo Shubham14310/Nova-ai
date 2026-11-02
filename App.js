@@ -8,7 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Speech from 'expo-speech';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
-import mobileAds, { NativeAd, NativeAdView, NativeAsset, NativeAssetType, NativeMediaView, TestIds, MaxAdContentRating } from 'react-native-google-mobile-ads';
+import { NativeAd, NativeAdView, NativeAsset, NativeAssetType, NativeMediaView, TestIds } from 'react-native-google-mobile-ads';
 
 const API_BASE = Constants.expoConfig?.extra?.apiBaseUrl || '';
 const STORAGE_KEY = 'nova_ai_chats_v1';
@@ -17,53 +17,32 @@ const FREE_MESSAGES_KEY = 'nova_ai_guest_messages_v1';
 const SUPABASE_URL = 'https://icnhaeqdqxrckbfsxmne.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_nvQsuah4Kru_3MPA-MhrLA_XhFSRvB8';
 
-function SponsoredNativeAd({ enabled }) {
+
+function SponsoredNativeAd() {
   const [nativeAd, setNativeAd] = useState(null);
-
   useEffect(() => {
-    if (!enabled) return;
     let active = true;
-    let loadedAd = null;
+    let createdAd = null;
     NativeAd.createForAdRequest(TestIds.NATIVE)
-      .then(ad => {
-        if (active) {
-          loadedAd = ad;
-          setNativeAd(ad);
-        } else {
-          ad.destroy();
-        }
-      })
-      .catch(error => console.warn('Nova AI native test ad failed:', error?.message || error));
-    return () => {
-      active = false;
-      loadedAd?.destroy();
-    };
-  }, [enabled]);
-
+      .then(ad => { createdAd = ad; if (active) setNativeAd(ad); else ad.destroy(); })
+      .catch(() => {});
+    return () => { active = false; if (createdAd) createdAd.destroy(); };
+  }, []);
   if (!nativeAd) return null;
-
   return (
-    <NativeAdView nativeAd={nativeAd} style={{ width: '100%', backgroundColor: '#20212A', borderRadius: 16, overflow: 'hidden', marginTop: 8 }}>
-      <View style={{ padding: 13 }}>
-        <Text style={{ color: '#B9AFFF', fontSize: 10, fontWeight: '800', marginBottom: 8 }}>Sponsored</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-          {nativeAd.icon?.url ? <NativeAsset assetType={NativeAssetType.ICON}><Image source={{ uri: nativeAd.icon.url }} style={{ width: 38, height: 38, borderRadius: 9 }} /></NativeAsset> : null}
-          <View style={{ flex: 1, marginLeft: nativeAd.icon?.url ? 10 : 0 }}>
-            <NativeAsset assetType={NativeAssetType.HEADLINE}><Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '800' }}>{nativeAd.headline}</Text></NativeAsset>
-            {nativeAd.advertiser ? <Text style={{ color: '#A3A4B4', fontSize: 11, marginTop: 3 }}>{nativeAd.advertiser}</Text> : null}
-          </View>
-        </View>
-        {nativeAd.body ? <NativeAsset assetType={NativeAssetType.BODY}><Text style={{ color: '#D5D5E0', fontSize: 12, lineHeight: 18 }}>{nativeAd.body}</Text></NativeAsset> : null}
-        {nativeAd.mediaContent ? <NativeMediaView style={{ width: '100%', height: 145, marginTop: 10, borderRadius: 10 }} /> : null}
-        {nativeAd.cta ? <NativeAsset assetType={NativeAssetType.CTA}><Text style={{ color: '#FFFFFF', backgroundColor: '#6547E8', overflow: 'hidden', alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 9, fontWeight: '700', marginTop: 10 }}>{nativeAd.cta}</Text></NativeAsset> : null}
-      </View>
+    <NativeAdView nativeAd={nativeAd} style={{ backgroundColor: '#20212A', borderRadius: 16, padding: 12, marginTop: 8, marginBottom: 10, width: '88%', alignSelf: 'flex-start' }}>
+      <Text style={{ color: '#B9AFFF', fontSize: 10, fontWeight: '800', marginBottom: 7 }}>SPONSORED</Text>
+      <NativeAsset assetType={NativeAssetType.HEADLINE}><Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '800' }}>{nativeAd.headline}</Text></NativeAsset>
+      {nativeAd.advertiser ? <NativeAsset assetType={NativeAssetType.ADVERTISER}><Text style={{ color: '#A3A4B4', fontSize: 11, marginTop: 3 }}>{nativeAd.advertiser}</Text></NativeAsset> : null}
+      {nativeAd.body ? <NativeAsset assetType={NativeAssetType.BODY}><Text style={{ color: '#D5D3E0', fontSize: 13, marginTop: 7 }}>{nativeAd.body}</Text></NativeAsset> : null}
+      <NativeMediaView style={{ height: 145, marginTop: 9, borderRadius: 10 }} />
+      {nativeAd.callToAction ? <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}><View style={{ backgroundColor: '#6547E8', borderRadius: 9, paddingVertical: 10, paddingHorizontal: 14, alignSelf: 'flex-start', marginTop: 9 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{nativeAd.callToAction}</Text></View></NativeAsset> : null}
     </NativeAdView>
   );
 }
 
 export default function App() {
   const [showLaunchSplash, setShowLaunchSplash] = useState(true);
-  const [adsReady, setAdsReady] = useState(false);
   const [messages, setMessages] = useState([]);
   const [chats, setChats] = useState([]);
   const [input, setInput] = useState('');
@@ -92,26 +71,6 @@ export default function App() {
   const [customInstructions, setCustomInstructions] = useState('');
   const [temporaryChat, setTemporaryChat] = useState(false);
   const listRef = useRef(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        // TEST BUILD ONLY: Google sample app ID + TestIds.BANNER are used.
-        // Keep requests suitable for younger audiences.
-        await mobileAds().setRequestConfiguration({
-          maxAdContentRating: MaxAdContentRating.PG,
-          tagForUnderAgeOfConsent: true,
-          tagForChildDirectedTreatment: false
-        });
-        await mobileAds().initialize();
-        if (!cancelled) setAdsReady(true);
-      } catch (error) {
-        console.warn('Nova AI test ads SDK initialization failed:', error?.message || error);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   useEffect(() => {
     const splashTimer = setTimeout(() => setShowLaunchSplash(false), 1900);
@@ -475,17 +434,17 @@ export default function App() {
 
   const bubble = ({ item, index }) => (
     <>
-    <View style={{ alignSelf: item.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%',
-      backgroundColor: item.role === 'user' ? '#6547E8' : '#20212A', borderRadius: 18,
-      padding: 13, marginVertical: 6, borderBottomRightRadius: item.role === 'user' ? 5 : 18 }}>
-      {item.imageUri ? <Image source={{ uri: item.imageUri }} style={{ width: 190, height: 140, borderRadius: 12, marginBottom: 8 }} /> : null}
-      {renderFormattedText(item.content)}
-      {item.role === 'assistant' ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 9, gap: 16 }}>
-        <TouchableOpacity onPress={() => speak(item.content)}><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▶ Read aloud</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => copyReply(item.content)} accessibilityLabel="Copy Nova reply"><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▢ Copy</Text></TouchableOpacity>
-      </View> : <TouchableOpacity onPress={async () => { const revised = messages.slice(0, index); setMessages(revised); setInput(String(item.content || '')); await persist(revised); }} style={{ marginTop: 8, alignSelf: 'flex-end' }}><Text style={{ color: '#D8D1FF', fontSize: 12 }}>✎ Edit</Text></TouchableOpacity>}
-    </View>
-    {item.role === 'assistant' && index === messages.length - 1 ? <SponsoredNativeAd enabled={adsReady} /> : null}
+      <View style={{ alignSelf: item.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%',
+        backgroundColor: item.role === 'user' ? '#6547E8' : '#20212A', borderRadius: 18,
+        padding: 13, marginVertical: 6, borderBottomRightRadius: item.role === 'user' ? 5 : 18 }}>
+        {item.imageUri ? <Image source={{ uri: item.imageUri }} style={{ width: 190, height: 140, borderRadius: 12, marginBottom: 8 }} /> : null}
+        {renderFormattedText(item.content)}
+        {item.role === 'assistant' ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 9, gap: 16 }}>
+          <TouchableOpacity onPress={() => speak(item.content)}><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▶ Read aloud</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => copyReply(item.content)} accessibilityLabel="Copy Nova reply"><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▢ Copy</Text></TouchableOpacity>
+        </View> : <TouchableOpacity onPress={async () => { const revised = messages.slice(0, index); setMessages(revised); setInput(String(item.content || '')); await persist(revised); }} style={{ marginTop: 8, alignSelf: 'flex-end' }}><Text style={{ color: '#D8D1FF', fontSize: 12 }}>✎ Edit</Text></TouchableOpacity>}
+      </View>
+      {item.role === 'assistant' && index === messages.length - 1 ? <SponsoredNativeAd /> : null}
     </>
   );
 
@@ -609,4 +568,29 @@ export default function App() {
             </View> : <Text style={{ color: '#A3A4B4', marginBottom: 16 }}>You are using Nova AI as a guest.</Text>}
             <TouchableOpacity onPress={newChat} style={{ padding: 14, backgroundColor: '#2B2740', borderRadius: 12, marginBottom: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '700' }}>＋  New chat</Text></TouchableOpacity>
             {session ? <>
-              <TouchableOpacity onPress={() => { setShowSettings(true); setShowMenu(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>Personalization</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowSettings(true); setShowMenu(false); setShowHistory(false); setShowVoiceSettings(false); setShowProfile(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>⚙  Personalization</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowProfile(true); setShowMenu(false); setShowHistory(false); setShowVoiceSettings(false); setShowSettings(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>♙  Profile</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowHistory(true); setShowMenu(false); setShowProfile(false); setShowVoiceSettings(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>◷  Chat history</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowSettings(true); setShowMenu(false); setShowHistory(false); setShowVoiceSettings(false); setShowProfile(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>⚙  Personalization</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowVoiceSettings(true); setShowMenu(false); setShowHistory(false); setShowProfile(false); setShowSettings(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5' }}>♫  Voice settings</Text></TouchableOpacity>
+              <View style={{ flex: 1 }} />
+              <TouchableOpacity onPress={logout} style={{ padding: 14, borderRadius: 12, backgroundColor: '#342327' }}><Text style={{ color: '#FFB5B5', fontWeight: '700' }}>↪  Log out</Text></TouchableOpacity>
+            </> : <>
+              <TouchableOpacity onPress={() => { setAuthMode('login'); setShowAuth(true); setShowMenu(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5', fontWeight: '700' }}>Log in</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setAuthMode('signup'); setShowAuth(true); setShowMenu(false); }} style={{ padding: 14, borderRadius: 12 }}><Text style={{ color: '#E6E2F5', fontWeight: '700' }}>Create account / Sign up</Text></TouchableOpacity>
+              <View style={{ flex: 1 }} />
+              <Text style={{ color: '#77798B', fontSize: 11, paddingBottom: 8 }}>Sign in to sync your chat history.</Text>
+            </>}
+          </View>
+          <TouchableOpacity onPress={() => setShowMenu(false)} style={{ flex: 1 }} />
+        </View> : null}
+      </KeyboardAvoidingView>
+      {showLaunchSplash ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, elevation: 100, backgroundColor: '#090D1F', alignItems: 'center', justifyContent: 'center' }}>
+        <Image source={require('./assets/nova-splash.png')} resizeMode="contain" style={{ width: 190, height: 190, marginBottom: 22 }} />
+        <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: '800', letterSpacing: 1 }}>Nova AI</Text>
+        <Text style={{ color: '#A9B8E8', fontSize: 13, marginTop: 9, letterSpacing: 1.2 }}>YOUR INTELLIGENT ASSISTANT</Text>
+        <ActivityIndicator color="#7D9BFF" size="small" style={{ marginTop: 30 }} />
+      </View> : null}
+    </SafeAreaView>
+  );
+}
