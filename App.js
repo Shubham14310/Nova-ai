@@ -8,7 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Speech from 'expo-speech';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
-import mobileAds, { BannerAd, BannerAdSize, TestIds, MaxAdContentRating } from 'react-native-google-mobile-ads';
+import mobileAds, { NativeAd, NativeAdView, NativeAsset, NativeAssetType, NativeMediaView, TestIds, MaxAdContentRating } from 'react-native-google-mobile-ads';
 
 const API_BASE = Constants.expoConfig?.extra?.apiBaseUrl || '';
 const STORAGE_KEY = 'nova_ai_chats_v1';
@@ -16,6 +16,50 @@ const AUTH_KEY = 'nova_ai_session_v1';
 const FREE_MESSAGES_KEY = 'nova_ai_guest_messages_v1';
 const SUPABASE_URL = 'https://icnhaeqdqxrckbfsxmne.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_nvQsuah4Kru_3MPA-MhrLA_XhFSRvB8';
+
+function SponsoredNativeAd({ enabled }) {
+  const [nativeAd, setNativeAd] = useState(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let active = true;
+    let loadedAd = null;
+    NativeAd.createForAdRequest(TestIds.NATIVE)
+      .then(ad => {
+        if (active) {
+          loadedAd = ad;
+          setNativeAd(ad);
+        } else {
+          ad.destroy();
+        }
+      })
+      .catch(error => console.warn('Nova AI native test ad failed:', error?.message || error));
+    return () => {
+      active = false;
+      loadedAd?.destroy();
+    };
+  }, [enabled]);
+
+  if (!nativeAd) return null;
+
+  return (
+    <NativeAdView nativeAd={nativeAd} style={{ width: '100%', backgroundColor: '#20212A', borderRadius: 16, overflow: 'hidden', marginTop: 8 }}>
+      <View style={{ padding: 13 }}>
+        <Text style={{ color: '#B9AFFF', fontSize: 10, fontWeight: '800', marginBottom: 8 }}>Sponsored</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+          {nativeAd.icon?.url ? <NativeAsset assetType={NativeAssetType.ICON}><Image source={{ uri: nativeAd.icon.url }} style={{ width: 38, height: 38, borderRadius: 9 }} /></NativeAsset> : null}
+          <View style={{ flex: 1, marginLeft: nativeAd.icon?.url ? 10 : 0 }}>
+            <NativeAsset assetType={NativeAssetType.HEADLINE}><Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '800' }}>{nativeAd.headline}</Text></NativeAsset>
+            {nativeAd.advertiser ? <Text style={{ color: '#A3A4B4', fontSize: 11, marginTop: 3 }}>{nativeAd.advertiser}</Text> : null}
+          </View>
+        </View>
+        {nativeAd.body ? <NativeAsset assetType={NativeAssetType.BODY}><Text style={{ color: '#D5D5E0', fontSize: 12, lineHeight: 18 }}>{nativeAd.body}</Text></NativeAsset> : null}
+        {nativeAd.mediaContent ? <NativeMediaView style={{ width: '100%', height: 145, marginTop: 10, borderRadius: 10 }} /> : null}
+        {nativeAd.cta ? <NativeAsset assetType={NativeAssetType.CTA}><Text style={{ color: '#FFFFFF', backgroundColor: '#6547E8', overflow: 'hidden', alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 9, fontWeight: '700', marginTop: 10 }}>{nativeAd.cta}</Text></NativeAsset> : null}
+      </View>
+    </NativeAdView>
+  );
+}
 
 export default function App() {
   const [showLaunchSplash, setShowLaunchSplash] = useState(true);
@@ -440,6 +484,7 @@ export default function App() {
         <TouchableOpacity onPress={() => copyReply(item.content)} accessibilityLabel="Copy Nova reply"><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▢ Copy</Text></TouchableOpacity>
       </View> : <TouchableOpacity onPress={async () => { const revised = messages.slice(0, index); setMessages(revised); setInput(String(item.content || '')); await persist(revised); }} style={{ marginTop: 8, alignSelf: 'flex-end' }}><Text style={{ color: '#D8D1FF', fontSize: 12 }}>✎ Edit</Text></TouchableOpacity>}
     </View>
+    {item.role === 'assistant' && index === messages.length - 1 ? <SponsoredNativeAd enabled={adsReady} /> : null}
   );
 
   return (
@@ -547,9 +592,6 @@ export default function App() {
             style={{ flex: 1, maxHeight: 130, minHeight: 48, color: '#FFFFFF', backgroundColor: '#22232D', borderRadius: 16, paddingHorizontal: 15, paddingVertical: 13, fontSize: 15, textAlignVertical: 'top' }} />
           <TouchableOpacity onPress={send} disabled={busy} style={{ backgroundColor: '#7659F5', paddingHorizontal: 16, paddingVertical: 15, borderRadius: 15, marginLeft: 8, opacity: busy ? 0.5 : 1 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>↑</Text></TouchableOpacity>
         </View>
-        {adsReady ? <View style={{ alignItems: 'center', justifyContent: 'center', minHeight: 50, backgroundColor: '#090D1F' }}>
-          <BannerAd unitId={TestIds.BANNER} size={BannerAdSize.BANNER} onAdFailedToLoad={(error) => console.warn('Nova AI test banner failed:', error.message)} />
-        </View> : null}
         <Text style={{ color: '#696B7B', fontSize: 10, textAlign: 'center', paddingBottom: 7 }}>Nova AI can make mistakes. Check important information.</Text></> : null}
         {showMenu ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 30, elevation: 30, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.58)' }}>
           <View style={{ width: '82%', maxWidth: 330, backgroundColor: '#191A24', paddingTop: 18, paddingHorizontal: 18, paddingBottom: 24 }}>
