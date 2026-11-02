@@ -18,6 +18,7 @@
 <header class="wrap nav"><div class="brand"><div class="logo">N</div><span>Nova AI</span></div><a href="#install">How to install</a></header>
 <main>
 <section class="wrap hero"><span class="eyebrow">Your intelligent assistant · Android</span><h1>Think faster.<br><span class="gradient">Create with Nova.</span></h1><p>Chat naturally, ask questions about images, and use voice features — all in one simple AI assistant.</p><div class="actions"><a class="btn primary" href="https://github.com/Shubham14310/Nova-ai/releases/download/v1.0.0/app-debug.apk">Download Nova AI APK</a><a class="btn secondary" href="https://github.com/Shubham14310/Nova-ai" target="_blank" rel="noopener">View on GitHub</a></div><div class="note">Direct APK download — no ZIP file or extraction needed. Follow the steps below to install Nova AI on Android.</div></section>
+<section class="wrap" aria-label="Download statistics" style="padding:0 0 34px"><div class="card" style="max-width:520px;margin:auto;text-align:center"><div style="font-size:.9rem;color:var(--muted)">Official APK downloads</div><div id="download-count" style="font-size:clamp(2.4rem,7vw,3.5rem);font-weight:850;line-height:1.2;margin:6px 0;background:linear-gradient(90deg,#a99cff,#5de1e6);-webkit-background-clip:text;background-clip:text;color:transparent">Loading…</div><div id="download-status" style="font-size:.82rem;color:var(--muted)">Live count from GitHub Releases</div></div></section>
 <section class="wrap features" id="features">
 <article class="card"><div class="ico">💬</div><h2>AI Chat</h2><p>Ask questions and get helpful responses in a conversational interface.</p></article>
 <article class="card"><div class="ico">🖼️</div><h2>Image Questions</h2><p>Choose an image and ask Nova AI to help you understand what is in it.</p></article>
@@ -35,4 +36,28 @@
 <section class="wrap about"><h2>Made to make AI feel simple.</h2><p>Nova AI brings chat, image questions and voice tools together in one place. Explore the app and follow the official project updates on GitHub.</p></section>
 </main>
 <footer><div class="wrap foot"><span>© <span id="year">2026</span> Nova AI</span><span><a href="https://github.com/Shubham14310/Nova-ai" target="_blank" rel="noopener">GitHub</a> · <a href="https://github.com/Shubham14310/Nova-ai/issues" target="_blank" rel="noopener">Support</a></span></div></footer>
+
+<script>
+(async function loadRealDownloadCount(){
+  const countEl = document.getElementById('download-count');
+  const statusEl = document.getElementById('download-status');
+  try {
+    const response = await fetch('https://api.github.com/repos/Shubham14310/Nova-ai/releases/tags/v1.0.0', {
+      headers: { 'Accept': 'application/vnd.github+json' },
+      cache: 'no-store'
+    });
+    if (!response.ok) throw new Error('GitHub count unavailable');
+    const release = await response.json();
+    const apk = (release.assets || []).find(asset => asset.name === 'app-debug.apk');
+    if (!apk || typeof apk.download_count !== 'number') throw new Error('APK asset not found');
+    countEl.textContent = apk.download_count.toLocaleString('en-IN');
+    statusEl.textContent = 'Real downloads of app-debug.apk · GitHub Releases';
+  } catch (error) {
+    countEl.textContent = '—';
+    statusEl.textContent = 'Live download count temporarily unavailable';
+  }
+})();
+document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+
 </body></html>
