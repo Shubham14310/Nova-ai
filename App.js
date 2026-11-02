@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Speech from 'expo-speech';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
+import mobileAds, { AdsConsent, BannerAd, BannerAdSize, TestIds, MaxAdContentRating } from 'react-native-google-mobile-ads';
 
 const API_BASE = Constants.expoConfig?.extra?.apiBaseUrl || '';
 const STORAGE_KEY = 'nova_ai_chats_v1';
@@ -18,6 +19,7 @@ const SUPABASE_KEY = 'sb_publishable_nvQsuah4Kru_3MPA-MhrLA_XhFSRvB8';
 
 export default function App() {
   const [showLaunchSplash, setShowLaunchSplash] = useState(true);
+  const [adsReady, setAdsReady] = useState(false);
   const [messages, setMessages] = useState([]);
   const [chats, setChats] = useState([]);
   const [input, setInput] = useState('');
@@ -46,6 +48,29 @@ export default function App() {
   const [customInstructions, setCustomInstructions] = useState('');
   const [temporaryChat, setTemporaryChat] = useState(false);
   const listRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // Test-only configuration. Keep ad requests suitable for younger audiences.
+        await mobileAds().setRequestConfiguration({
+          maxAdContentRating: MaxAdContentRating.PG,
+          tagForUnderAgeOfConsent: true
+        });
+        await AdsConsent.gatherConsent();
+        const consent = await AdsConsent.getConsentInfo();
+        if (!cancelled && consent.canRequestAds) {
+          await mobileAds().initialize();
+          if (!cancelled) setAdsReady(true);
+        }
+      } catch (error) {
+        // Ads remain hidden if consent or SDK setup is unavailable.
+        console.warn('Nova AI test ads are unavailable:', error?.message || error);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const splashTimer = setTimeout(() => setShowLaunchSplash(false), 1900);
@@ -525,6 +550,9 @@ export default function App() {
             style={{ flex: 1, maxHeight: 130, minHeight: 48, color: '#FFFFFF', backgroundColor: '#22232D', borderRadius: 16, paddingHorizontal: 15, paddingVertical: 13, fontSize: 15, textAlignVertical: 'top' }} />
           <TouchableOpacity onPress={send} disabled={busy} style={{ backgroundColor: '#7659F5', paddingHorizontal: 16, paddingVertical: 15, borderRadius: 15, marginLeft: 8, opacity: busy ? 0.5 : 1 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>↑</Text></TouchableOpacity>
         </View>
+        {adsReady ? <View style={{ alignItems: 'center', justifyContent: 'center', minHeight: 50, backgroundColor: '#090D1F' }}>
+          <BannerAd unitId={TestIds.BANNER} size={BannerAdSize.BANNER} onAdFailedToLoad={(error) => console.warn('Nova AI test banner failed:', error.message)} />
+        </View> : null}
         <Text style={{ color: '#696B7B', fontSize: 10, textAlign: 'center', paddingBottom: 7 }}>Nova AI can make mistakes. Check important information.</Text></> : null}
         {showMenu ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 30, elevation: 30, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.58)' }}>
           <View style={{ width: '82%', maxWidth: 330, backgroundColor: '#191A24', paddingTop: 18, paddingHorizontal: 18, paddingBottom: 24 }}>
