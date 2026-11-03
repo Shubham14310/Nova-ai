@@ -150,7 +150,7 @@ app.post('/api/pdf/analyze', (req, res, next) => {
       ? req.body.prompt.trim().slice(0, 3000)
       : 'Summarize this PDF and list its important points.';
     const parsed = await pdf(req.file.buffer);
-    const documentText = String(parsed.text || '').replace(/\\u0000/g, '').trim().slice(0, 45000);
+    const documentText = String(parsed.text || '').replace(/\u0000/g, '').trim().slice(0, 45000);
     if (!documentText) return res.status(422).json({ error: 'No selectable text was found. Scanned/image-only PDFs need OCR and are not supported in this first version.' });
     const model = TEXT_MODEL;
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -159,8 +159,8 @@ app.post('/api/pdf/analyze', (req, res, next) => {
       body: JSON.stringify({
         model,
         messages: [
-          { role: 'system', content: NOVA_SYSTEM_PROMPT + '\\n\\nYou are analyzing an uploaded PDF. Use only the extracted document text for document-specific facts. If information is missing, say so. When page markers are available, cite page numbers. Do not claim to have read images or scanned pages.' },
-          { role: 'user', content: 'PDF filename: ' + req.file.originalname + '\\n\\nUser instruction: ' + prompt + '\\n\\nExtracted PDF text:\\n' + documentText }
+          { role: 'system', content: NOVA_SYSTEM_PROMPT + '\n\nYou are analyzing an uploaded PDF. Use only the extracted document text for document-specific facts. If information is missing, say so. When page markers are available, cite page numbers. Do not claim to have read images or scanned pages.' },
+          { role: 'user', content: 'PDF filename: ' + req.file.originalname + '\n\nUser instruction: ' + prompt + '\n\nExtracted PDF text:\n' + documentText }
         ],
         temperature: 0.3,
         max_tokens: 3000
