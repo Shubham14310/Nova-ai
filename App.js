@@ -302,8 +302,8 @@ export default function App() {
       });
       if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
-      if (asset.size && asset.size > 50 * 1024 * 1024) {
-        Alert.alert('PDF too large', 'Please choose a PDF smaller than 50 MB.');
+      if (asset.size && asset.size > 60 * 1024 * 1024) {
+        Alert.alert('PDF too large', 'Please choose a PDF smaller than 60 MB.');
         return;
       }
       setPdfFile(asset);
