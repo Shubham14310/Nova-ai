@@ -140,19 +140,37 @@ app.post('/api/images/generate', async (req, res) => {
         body: JSON.stringify(modelInput)
       }
     );
-    const data = await imageResponse.json();
-    if (!imageResponse.ok || data?.success === false) {
-      const providerMessage = data?.errors?.[0]?.message || data?.error?.message;
+    if (!imageResponse.ok) {
+      const errorText = await imageResponse.text();
+      let providerMessage = '';
+      try {
+        const errorData = JSON.parse(errorText);
+        providerMessage = errorData?.errors?.[0]?.message || errorData?.error?.message || errorData?.message || '';
+      } catch {
+        providerMessage = errorText.slice(0, 300);
+      }
       return res.status(imageResponse.status || 502).json({
         error: providerMessage || 'Cloudflare could not generate this image. Please try again later.'
       });
     }
 
-    const imageBase64 = data?.result?.image || data?.image;
+    let imageBase64 = '';
+    let mimeType = 'image/jpeg';
+    if (isPhotoEdit) {
+      const imageBytes = Buffer.from(await imageResponse.arrayBuffer());
+      imageBase64 = imageBytes.toString('base64');
+      mimeType = imageResponse.headers.get('content-type')?.includes('jpeg') ? 'image/jpeg' : 'image/png';
+    } else {
+      const data = await imageResponse.json();
+      if (data?.success === false) {
+        return res.status(502).json({ error: data?.errors?.[0]?.message || 'Cloudflare could not generate this image.' });
+      }
+      imageBase64 = data?.result?.image || data?.image || '';
+    }
     if (!imageBase64 || typeof imageBase64 !== 'string') {
       return res.status(502).json({ error: 'Cloudflare returned an empty image.' });
     }
-    res.json({ imageBase64, mimeType: 'image/jpeg', model });
+    res.json({ imageBase64, mimeType, model });
   } catch (error) {
     res.status(500).json({ error: 'Image generation error: ' + error.message });
   }
