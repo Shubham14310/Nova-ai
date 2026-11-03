@@ -107,7 +107,28 @@ app.post('/api/images/generate', async (req, res) => {
     recentRequests.push(now);
     imageGenerationRequests.set(clientKey, recentRequests);
 
-    const model = '@cf/black-forest-labs/flux-1-schnell';
+    const imageBase64 = typeof req.body?.imageBase64 === 'string' ? req.body.imageBase64.replace(/^data:image\\/[a-zA-Z0-9.+-]+;base64,/, '') : '';
+    const isPhotoEdit = Boolean(imageBase64);
+    if (imageBase64.length > 8 * 1024 * 1024) {
+      return res.status(413).json({ error: 'Photo is too large. Please choose an image under 6 MB.' });
+    }
+    if (isPhotoEdit && !/^image\\/(jpeg|jpg|png|webp)$/i.test(req.body?.imageMimeType || '')) {
+      return res.status(400).json({ error: 'Please upload a JPG, PNG or WebP photo.' });
+    }
+
+    const model = isPhotoEdit
+      ? '@cf/runwayml/stable-diffusion-v1-5-img2img'
+      : '@cf/black-forest-labs/flux-1-schnell';
+    const modelInput = isPhotoEdit
+      ? {
+          prompt: 'Edit the provided photo according to this instruction: ' + prompt + '. Preserve the same person and their recognizable facial identity, face shape, eyes, nose, mouth, skin tone and expression as closely as possible. Make only the requested changes. Keep the result photorealistic.',
+          negative_prompt: 'different person, changed identity, altered facial features, distorted face, extra face, blurry face, deformed anatomy',
+          image_b64: imageBase64,
+          strength: 0.35,
+          num_steps: 20,
+          guidance: 7.5
+        }
+      : { prompt, steps: 4 };
     const imageResponse = await fetch(
       `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(CLOUDFLARE_ACCOUNT_ID)}/ai/run/${encodeURIComponent(model)}`,
       {
@@ -116,7 +137,7 @@ app.post('/api/images/generate', async (req, res) => {
           Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ prompt, steps: 4 })
+        body: JSON.stringify(modelInput)
       }
     );
     const data = await imageResponse.json();
