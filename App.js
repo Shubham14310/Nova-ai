@@ -80,8 +80,7 @@ export default function App() {
         }
         const saved = JSON.parse((await AsyncStorage.getItem(STORAGE_KEY)) || '[]');
         setChats(current => current.length ? current : saved);
-        const latest = saved[0];
-        if (latest) { setChatId(latest.id); setMessages(latest.messages || []); }
+        // Start with a fresh chat on every app launch; previous chats remain in history.
       } catch {}
     })();
   }, []);
@@ -178,10 +177,7 @@ export default function App() {
         .sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 30);
       setChats(merged);
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-      if (cloudChats.length && messages.length === 0) {
-        setChatId(cloudChats[0].id);
-        setMessages(cloudChats[0].messages || []);
-      }
+      // Keep the home screen as a fresh chat; older cloud chats stay available in history.
     } catch {}
   }
 
