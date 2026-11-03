@@ -375,7 +375,7 @@ export default function App() {
         const form = new FormData();
         form.append('file', { uri: selectedPdf.uri, name: selectedPdf.name || 'document.pdf', type: 'application/pdf' });
         form.append('prompt', text || 'Summarize this PDF and list its important points.');
-        const pdfResponse = await fetch(`${API_BASE.replace(/\\/$/, '')}/api/pdf/analyze`, {
+        const pdfResponse = await fetch(`${API_BASE.replace(/\/+$/, '')}/api/pdf/analyze`, {
           method: 'POST',
           body: form
         });
