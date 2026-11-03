@@ -6,7 +6,7 @@ import pdf from 'pdf-parse';
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '12mb' }));
-const pdfUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: (req, file, callback) => callback(null, file.mimetype === 'application/pdf' || file.originalname?.toLowerCase().endsWith('.pdf')) });
+const pdfUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 }, fileFilter: (req, file, callback) => callback(null, file.mimetype === 'application/pdf' || file.originalname?.toLowerCase().endsWith('.pdf')) });
 
 const API_KEY = process.env.GROQ_API_KEY;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
@@ -139,7 +139,7 @@ app.post('/api/images/generate', async (req, res) => {
 
 app.post('/api/pdf/analyze', (req, res, next) => {
   pdfUpload.single('file')(req, res, error => {
-    if (error) return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'PDF must be 10 MB or smaller.' : 'Could not receive this PDF.' });
+    if (error) return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'PDF must be 50 MB or smaller.' : 'Could not receive this PDF.' });
     next();
   });
 }, async (req, res) => {
