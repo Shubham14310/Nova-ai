@@ -404,9 +404,9 @@ export default function App() {
   }
 
   const bubble = ({ item, index }) => (
-    <View style={{ alignSelf: item.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%',
-      backgroundColor: item.role === 'user' ? '#6547E8' : '#20212A', borderRadius: 18,
-      padding: 13, marginVertical: 6, borderBottomRightRadius: item.role === 'user' ? 5 : 18 }}>
+    <View style={item.role === 'user'
+      ? { alignSelf: 'flex-end', maxWidth: '88%', backgroundColor: '#6547E8', borderRadius: 18, padding: 13, marginVertical: 6, borderBottomRightRadius: 5 }
+      : { alignSelf: 'stretch', width: '100%', backgroundColor: 'transparent', borderRadius: 0, paddingHorizontal: 4, paddingVertical: 12, marginVertical: 4 }}>
       {item.imageUri ? <Image source={{ uri: item.imageUri }} style={{ width: 190, height: 140, borderRadius: 12, marginBottom: 8 }} /> : null}
       {renderFormattedText(item.content)}
       {item.role === 'assistant' ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 9, gap: 16 }}>
