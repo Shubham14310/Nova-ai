@@ -1,6 +1,16 @@
 name: Build Nova AI Android APK
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "App.js"
+      - "app.json"
+      - "eas.json"
+      - "package.json"
+      - "server/**"
+      - "assets/**"
+      - ".github/workflows/build-apk.yml"
   workflow_dispatch:
   push:
     branches: [main]
@@ -43,6 +53,9 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Align Expo native packages with the installed SDK
+        run: npx expo install --fix
 
       - name: Install SDK-compatible splash screen package
         run: npx expo install expo-splash-screen

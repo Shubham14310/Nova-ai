@@ -1,9 +1,12 @@
 import express from 'express';
 import cors from 'cors';
+import multer from 'multer';
+import pdf from 'pdf-parse';
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '12mb' }));
+const pdfUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 60 * 1024 * 1024 }, fileFilter: (req, file, callback) => callback(null, file.mimetype === 'application/pdf' || file.originalname?.toLowerCase().endsWith('.pdf')) });
 
 const API_KEY = process.env.GROQ_API_KEY;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
@@ -104,7 +107,28 @@ app.post('/api/images/generate', async (req, res) => {
     recentRequests.push(now);
     imageGenerationRequests.set(clientKey, recentRequests);
 
-    const model = '@cf/black-forest-labs/flux-1-schnell';
+    const imageBase64 = typeof req.body?.imageBase64 === 'string' ? req.body.imageBase64.replace(/^data:image\\/[a-zA-Z0-9.+-]+;base64,/, '') : '';
+    const isPhotoEdit = Boolean(imageBase64);
+    if (imageBase64.length > 8 * 1024 * 1024) {
+      return res.status(413).json({ error: 'Photo is too large. Please choose an image under 6 MB.' });
+    }
+    if (isPhotoEdit && !/^image\\/(jpeg|jpg|png|webp)$/i.test(req.body?.imageMimeType || '')) {
+      return res.status(400).json({ error: 'Please upload a JPG, PNG or WebP photo.' });
+    }
+
+    const model = isPhotoEdit
+      ? '@cf/runwayml/stable-diffusion-v1-5-img2img'
+      : '@cf/black-forest-labs/flux-1-schnell';
+    const modelInput = isPhotoEdit
+      ? {
+          prompt: 'Edit the provided photo according to this instruction: ' + prompt + '. Preserve the same person and their recognizable facial identity, face shape, eyes, nose, mouth, skin tone and expression as closely as possible. Make only the requested changes. Keep the result photorealistic.',
+          negative_prompt: 'different person, changed identity, altered facial features, distorted face, extra face, blurry face, deformed anatomy',
+          image_b64: imageBase64,
+          strength: 0.35,
+          num_steps: 20,
+          guidance: 7.5
+        }
+      : { prompt, steps: 4 };
     const imageResponse = await fetch(
       `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(CLOUDFLARE_ACCOUNT_ID)}/ai/run/${encodeURIComponent(model)}`,
       {
@@ -113,24 +137,81 @@ app.post('/api/images/generate', async (req, res) => {
           Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ prompt, steps: 4 })
+        body: JSON.stringify(modelInput)
       }
     );
-    const data = await imageResponse.json();
-    if (!imageResponse.ok || data?.success === false) {
-      const providerMessage = data?.errors?.[0]?.message || data?.error?.message;
+    if (!imageResponse.ok) {
+      const errorText = await imageResponse.text();
+      let providerMessage = '';
+      try {
+        const errorData = JSON.parse(errorText);
+        providerMessage = errorData?.errors?.[0]?.message || errorData?.error?.message || errorData?.message || '';
+      } catch {
+        providerMessage = errorText.slice(0, 300);
+      }
       return res.status(imageResponse.status || 502).json({
         error: providerMessage || 'Cloudflare could not generate this image. Please try again later.'
       });
     }
 
-    const imageBase64 = data?.result?.image || data?.image;
+    let imageBase64 = '';
+    let mimeType = 'image/jpeg';
+    if (isPhotoEdit) {
+      const imageBytes = Buffer.from(await imageResponse.arrayBuffer());
+      imageBase64 = imageBytes.toString('base64');
+      mimeType = imageResponse.headers.get('content-type')?.includes('jpeg') ? 'image/jpeg' : 'image/png';
+    } else {
+      const data = await imageResponse.json();
+      if (data?.success === false) {
+        return res.status(502).json({ error: data?.errors?.[0]?.message || 'Cloudflare could not generate this image.' });
+      }
+      imageBase64 = data?.result?.image || data?.image || '';
+    }
     if (!imageBase64 || typeof imageBase64 !== 'string') {
       return res.status(502).json({ error: 'Cloudflare returned an empty image.' });
     }
-    res.json({ imageBase64, mimeType: 'image/jpeg', model });
+    res.json({ imageBase64, mimeType, model });
   } catch (error) {
     res.status(500).json({ error: 'Image generation error: ' + error.message });
+  }
+});
+
+app.post('/api/pdf/analyze', (req, res, next) => {
+  pdfUpload.single('file')(req, res, error => {
+    if (error) return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'PDF must be 60 MB or smaller.' : 'Could not receive this PDF.' });
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (!API_KEY) return res.status(503).json({ error: 'GROQ_API_KEY is not configured on the server.' });
+    if (!req.file) return res.status(400).json({ error: 'Please attach a PDF file.' });
+    const prompt = typeof req.body?.prompt === 'string' && req.body.prompt.trim()
+      ? req.body.prompt.trim().slice(0, 3000)
+      : 'Summarize this PDF and list its important points.';
+    const parsed = await pdf(req.file.buffer);
+    const documentText = String(parsed.text || '').replace(/\u0000/g, '').trim().slice(0, 45000);
+    if (!documentText) return res.status(422).json({ error: 'No selectable text was found. Scanned/image-only PDFs need OCR and are not supported in this first version.' });
+    const model = TEXT_MODEL;
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: NOVA_SYSTEM_PROMPT + '\n\nYou are analyzing an uploaded PDF. Use only the extracted document text for document-specific facts. If information is missing, say so. When page markers are available, cite page numbers. Do not claim to have read images or scanned pages.' },
+          { role: 'user', content: 'PDF filename: ' + req.file.originalname + '\n\nUser instruction: ' + prompt + '\n\nExtracted PDF text:\n' + documentText }
+        ],
+        temperature: 0.3,
+        max_tokens: 3000
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) return res.status(response.status).json({ error: data?.error?.message || 'PDF analysis failed.' });
+    const reply = data.choices?.[0]?.message?.content?.trim();
+    if (!reply) return res.status(502).json({ error: 'The AI returned no PDF analysis. Please try again.' });
+    res.json({ reply, documentText, pageCount: parsed.numpages || null, filename: req.file.originalname });
+  } catch (error) {
+    res.status(500).json({ error: 'PDF processing error: ' + (error.message || 'Unknown error') });
   }
 });
 

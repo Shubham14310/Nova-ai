@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import * as Speech from 'expo-speech';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
@@ -55,6 +56,7 @@ export default function App() {
   const [chats, setChats] = useState([]);
   const [input, setInput] = useState('');
   const [image, setImage] = useState(null);
+  const [pdfFile, setPdfFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [chatId, setChatId] = useState(String(Date.now()));
   const [showHistory, setShowHistory] = useState(false);
@@ -291,9 +293,28 @@ export default function App() {
     if (!result.canceled) setImage(result.assets[0]);
   }
 
+  async function choosePdf() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+        multiple: false
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      if (asset.size && asset.size > 60 * 1024 * 1024) {
+        Alert.alert('PDF too large', 'Please choose a PDF smaller than 60 MB.');
+        return;
+      }
+      setPdfFile(asset);
+    } catch (error) {
+      Alert.alert('PDF selection failed', error.message || 'Could not open this PDF.');
+    }
+  }
+
   async function send() {
     const text = input.trim();
-    if ((!text && !image) || busy) return;
+    if ((!text && !image && !pdfFile) || busy) return;
     // Guests get three free user messages total on this device, then must sign up.
     if (!session) {
       const used = Number(await AsyncStorage.getItem(FREE_MESSAGES_KEY) || '0');
@@ -314,16 +335,20 @@ export default function App() {
       Alert.alert('Backend not connected', 'Deploy the server and add its HTTPS URL in app.json first.');
       return;
     }
-    const userMessage = { role: 'user', content: text || 'Please describe this image.', imageUri: image?.uri, imageBase64: image?.base64, imageMimeType: image?.mimeType || 'image/jpeg' };
+    const userMessage = { role: 'user', content: text || (pdfFile ? 'Please analyze this PDF.' : 'Please describe this image.'), imageUri: image?.uri, imageBase64: image?.base64, imageMimeType: image?.mimeType || 'image/jpeg', pdfName: pdfFile?.name || null };
     const next = [...messages, userMessage];
     setMessages(next); setInput(''); setBusy(true);
     setImage(null);
+    const selectedPdf = pdfFile;
+    setPdfFile(null);
     try {
       // Save the user's message immediately so it is not lost if the network fails.
       await persist(next);
       // Detect image requests in English, Hindi and Hinglish from the normal chat composer.
       const imageIntent = /(?:\b(?:generate|create|draw|make|paint)\b.{0,100}\b(?:image|picture|photo|art|illustration)\b)|(?:\b(?:image|picture|photo|art|illustration|tasveer|tasvir)\b.{0,100}\b(?:bana(?:o|do)?|bana\s*do|banado|create|generate|draw)\b)|(?:\b(?:bana(?:o|do)?|bana\s*do|banado|make|create|generate|draw)\b.{0,100}\b(?:image|picture|photo|art|illustration|tasveer|tasvir)\b)|(?:(?:फोटो|तस्वीर|इमेज|चित्र).{0,100}(?:बना|बनाओ|बना\s*दो|तैयार))|(?:(?:बना|बनाओ|बना\s*दो|तैयार).{0,100}(?:फोटो|तस्वीर|इमेज|चित्र))/i;
-      if (imageIntent.test(text)) {
+      const photoEditIntent = /(?:\\b(?:edit|change|replace|remove|add|transform|make|put|show|place|stand)\\b.{0,100}\\b(?:background|clothes|outfit|shirt|suit|scene|setting|photo|picture|image|portrait|beach|mountain|sunset|garden|city)\\b)|(?:\\b(?:background|kapde|kapda|dress|suit|shirt|photo|tasveer|tasvir|beach|mountain|sunset)\\b.{0,100}\\b(?:badal|change|replace|hata|lagao|karo|kar do|banao|dikhao)\\b)|(?:\\b(?:badal do|change karo|edit karo|bana do|dikhao|background change|khada kar do|khadi kar do|pe khada karo|par khada karo)\\b)|(?:(?:बैकग्राउंड|कपड़े|फोटो|तस्वीर).{0,100}(?:बदल|बदलो|बदलिए|करो|बना|दिखाओ))/i;
+      const shouldEditUploadedPhoto = Boolean(image?.base64 && text && photoEditIntent.test(text));
+      if (imageIntent.test(text) || shouldEditUploadedPhoto) {
         const prompt = text
           .replace(/^(?:please\s+)?(?:generate|create|draw|make|paint)(?:\s+me)?\s+(?:an?\s+)?(?:image|picture|photo|art|illustration)(?:\s+(?:of|for))?\s*/i, '')
           .replace(/^(?:ek|एक)\s+/i, '')
@@ -333,12 +358,12 @@ export default function App() {
         try {
           const imageResponse = await fetch(`${API_BASE.replace(/\/+$/, '')}/api/images/generate`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt })
+            body: JSON.stringify({ prompt, imageBase64: shouldEditUploadedPhoto ? image.base64 : undefined, imageMimeType: shouldEditUploadedPhoto ? (image.mimeType || 'image/jpeg') : undefined })
           });
           const imageData = await imageResponse.json();
           if (!imageResponse.ok) throw new Error(imageData.error || `Image generation failed (HTTP ${imageResponse.status})`);
           if (!imageData.imageBase64) throw new Error('Image service returned no image.');
-          const generated = { role: 'assistant', content: 'Ye rahi aapki image ✨', imageUri: `data:${imageData.mimeType || 'image/jpeg'};base64,${imageData.imageBase64}` };
+          const generated = { role: 'assistant', content: shouldEditUploadedPhoto ? 'Aapki edited photo tayyar hai ✨ Maine original face ko preserve karne ki koshish ki hai.' : 'Ye rahi aapki image ✨', imageUri: `data:${imageData.mimeType || 'image/jpeg'};base64,${imageData.imageBase64}` };
           const completed = [...next, generated];
           setMessages(completed); await persist(completed);
           return;
@@ -347,6 +372,23 @@ export default function App() {
           setMessages(failed); await persist(failed);
           return;
         }
+      }
+      if (selectedPdf) {
+        const form = new FormData();
+        form.append('file', { uri: selectedPdf.uri, name: selectedPdf.name || 'document.pdf', type: 'application/pdf' });
+        form.append('prompt', text || 'Summarize this PDF and list its important points.');
+        const pdfResponse = await fetch(`${API_BASE.replace(/\/+$/, '')}/api/pdf/analyze`, {
+          method: 'POST',
+          body: form
+        });
+        const pdfData = await pdfResponse.json();
+        if (!pdfResponse.ok) throw new Error(pdfData.error || 'PDF analysis failed.');
+        const withPdfText = [...next];
+        withPdfText[withPdfText.length - 1] = { ...userMessage, pdfText: pdfData.documentText, pdfName: selectedPdf.name };
+        const completed = [...withPdfText, { role: 'assistant', content: pdfData.reply }];
+        setMessages(completed);
+        await persist(completed);
+        return;
       }
       // Recent cross-chat context is kept locally and sent only with the next message.
       const previousContext = chats
@@ -359,7 +401,9 @@ export default function App() {
         .join('\\n')
         .slice(-5000);
 
+      const latestPdf = [...next].reverse().find(message => message.role === 'user' && typeof message.pdfText === 'string' && message.pdfText.length);
       const payloadMessages = [
+        ...(latestPdf ? [{ role: 'system', content: 'The user uploaded a PDF named ' + (latestPdf.pdfName || 'document.pdf') + '. Answer the latest request using this document. If the answer is not present, say so. Cite page numbers when available. Extracted PDF text:\\n' + latestPdf.pdfText.slice(0, 45000) }] : []),
         ...(customInstructions.trim() ? [{ role: 'system', content: 'User custom instructions (follow when safe and relevant): ' + customInstructions.trim().slice(0, 1500) }] : []),
         ...(studyMode ? [{ role: 'system', content: 'STUDY MODE: Be a patient tutor. Explain concepts in clear, age-appropriate steps, use simple examples, define difficult words, check understanding with a short practice question when useful, and guide the learner instead of doing assessed work for them. Adapt to the requested language. Do not invent facts.' }] : []),
         ...(codingMode ? [{ role: 'system', content: 'CODING MODE: Act as an expert senior software engineer and patient coding tutor. Understand the user’s goal before coding. Provide correct, runnable, complete code (not vague snippets) when they ask to build something; preserve existing project structure and explain exactly which file to edit and where. For bug fixes, identify the likely root cause, give the corrected full relevant file or precise patch, and explain how to test it. Use current best practices, safe input handling, error states, accessibility, and mobile-friendly UI when relevant. Do not invent APIs or claim you ran the code. If essential details are missing, ask one concise question; otherwise make sensible assumptions and state them. For Hindi/Hinglish requests, explain simply in Hinglish. When a task is large, deliver a working first milestone and then continue incrementally.' }] : []),
@@ -450,6 +494,7 @@ export default function App() {
     <View style={item.role === 'user'
       ? { alignSelf: 'flex-end', maxWidth: '88%', backgroundColor: '#6547E8', borderRadius: 18, padding: 13, marginVertical: 6, borderBottomRightRadius: 5 }
       : { alignSelf: 'stretch', width: '100%', backgroundColor: 'transparent', borderRadius: 0, paddingHorizontal: 4, paddingVertical: 12, marginVertical: 4 }}>
+      {item.pdfName ? <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#29243D', borderRadius: 10, padding: 10, marginBottom: 8 }}><Text style={{ color: '#FFB7B7', fontSize: 22, marginRight: 9 }}>▤</Text><View style={{ flex: 1 }}><Text numberOfLines={1} style={{ color: '#FFFFFF', fontWeight: '700' }}>{item.pdfName}</Text><Text style={{ color: '#B9AFFF', fontSize: 11 }}>PDF attached</Text></View></View> : null}
       {item.imageUri ? <Image source={{ uri: item.imageUri }} style={{ width: 190, height: 140, borderRadius: 12, marginBottom: 8 }} /> : null}
       {renderFormattedText(item.content)}
       {item.role === 'assistant' ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 9, gap: 16 }}>
@@ -556,13 +601,14 @@ export default function App() {
         </View> : <FlatList ref={listRef} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" style={{ flex: 1, paddingHorizontal: 14 }} data={messages} keyExtractor={(_, i) => String(i)} renderItem={bubble} contentContainerStyle={{ paddingVertical: 14, paddingBottom: 24 }} onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })} onLayout={() => listRef.current?.scrollToEnd({ animated: false })} />}
         {!showHistory && !showVoiceSettings && !showSettings && !showAuth && !showProfile ? <>{busy ? <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10 }}><ActivityIndicator color="#A99BFF" /><Text style={{ color: '#A3A4B4', marginLeft: 9 }}>Nova is thinking...</Text></View> : null}
         {image ? <View style={{ paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center' }}><Image source={{ uri: image.uri }} style={{ width: 56, height: 56, borderRadius: 10 }} /><TouchableOpacity onPress={() => setImage(null)}><Text style={{ color: '#FF9A9A', marginLeft: 12 }}>Remove image</Text></TouchableOpacity></View> : null}
+        {pdfFile ? <View style={{ marginHorizontal: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: '#29243D', borderRadius: 12, padding: 10 }}><Text style={{ color: '#FFB7B7', fontSize: 22, marginRight: 9 }}>▤</Text><View style={{ flex: 1 }}><Text numberOfLines={1} style={{ color: '#FFFFFF', fontWeight: '700' }}>{pdfFile.name}</Text><Text style={{ color: '#B9AFFF', fontSize: 11 }}>PDF ready · Add an instruction below</Text></View><TouchableOpacity onPress={() => setPdfFile(null)}><Text style={{ color: '#FF9A9A', padding: 6 }}>Remove</Text></TouchableOpacity></View> : null}
         <View style={{ paddingHorizontal: 12, paddingTop: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <TouchableOpacity onPress={() => setStudyMode(v => !v)} style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9, backgroundColor: studyMode ? '#45366B' : '#22232D' }}><Text style={{ color: studyMode ? '#E4DBFF' : '#A3A4B4', fontSize: 11, fontWeight: '700' }}>{studyMode ? '📚 Study ON' : '📚 Study mode'}</Text></TouchableOpacity>
           <TouchableOpacity onPress={() => setTemporaryChat(v => !v)} style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9, backgroundColor: temporaryChat ? '#45366B' : '#22232D' }}><Text style={{ color: temporaryChat ? '#E4DBFF' : '#A3A4B4', fontSize: 11, fontWeight: '700' }}>{temporaryChat ? '◉ Temporary chat ON' : '◯ Temporary chat'}</Text></TouchableOpacity>
           <TouchableOpacity onPress={shareCurrentChat} style={{ paddingHorizontal: 10, paddingVertical: 7 }}><Text style={{ color: '#B9AFFF', fontSize: 11 }}>↗ Share chat</Text></TouchableOpacity>
         </View>
         <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: '#282936', flexDirection: 'row', alignItems: 'flex-end' }}>
-          <TouchableOpacity onPress={chooseImage} style={{ backgroundColor: '#282936', padding: 13, borderRadius: 15, marginRight: 8 }}><Text style={{ color: '#D5CEFF', fontSize: 18 }}>＋</Text></TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 6, marginRight: 7 }}><TouchableOpacity onPress={chooseImage} style={{ backgroundColor: '#282936', padding: 12, borderRadius: 13 }}><Text style={{ color: '#D5CEFF', fontSize: 17 }}>▧</Text></TouchableOpacity><TouchableOpacity onPress={choosePdf} style={{ backgroundColor: '#282936', padding: 12, borderRadius: 13 }}><Text style={{ color: '#FFB7B7', fontSize: 17 }}>PDF</Text></TouchableOpacity></View>
           <TextInput value={input} onChangeText={setInput} placeholder="Message Nova AI..." placeholderTextColor="#77798B" multiline blurOnSubmit={false} returnKeyType="default"
             style={{ flex: 1, maxHeight: 130, minHeight: 48, color: '#FFFFFF', backgroundColor: '#22232D', borderRadius: 16, paddingHorizontal: 15, paddingVertical: 13, fontSize: 15, textAlignVertical: 'top' }} />
           <TouchableOpacity onPress={send} disabled={busy} style={{ backgroundColor: '#7659F5', paddingHorizontal: 16, paddingVertical: 15, borderRadius: 15, marginLeft: 8, opacity: busy ? 0.5 : 1 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>↑</Text></TouchableOpacity>
