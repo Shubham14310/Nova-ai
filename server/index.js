@@ -1,9 +1,12 @@
 import express from 'express';
 import cors from 'cors';
+import multer from 'multer';
+import pdf from 'pdf-parse';
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '12mb' }));
+const pdfUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: (req, file, callback) => callback(null, file.mimetype === 'application/pdf' || file.originalname?.toLowerCase().endsWith('.pdf')) });
 
 const API_KEY = process.env.GROQ_API_KEY;
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
@@ -131,6 +134,45 @@ app.post('/api/images/generate', async (req, res) => {
     res.json({ imageBase64, mimeType: 'image/jpeg', model });
   } catch (error) {
     res.status(500).json({ error: 'Image generation error: ' + error.message });
+  }
+});
+
+app.post('/api/pdf/analyze', (req, res, next) => {
+  pdfUpload.single('file')(req, res, error => {
+    if (error) return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'PDF must be 10 MB or smaller.' : 'Could not receive this PDF.' });
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (!API_KEY) return res.status(503).json({ error: 'GROQ_API_KEY is not configured on the server.' });
+    if (!req.file) return res.status(400).json({ error: 'Please attach a PDF file.' });
+    const prompt = typeof req.body?.prompt === 'string' && req.body.prompt.trim()
+      ? req.body.prompt.trim().slice(0, 3000)
+      : 'Summarize this PDF and list its important points.';
+    const parsed = await pdf(req.file.buffer);
+    const documentText = String(parsed.text || '').replace(/\\u0000/g, '').trim().slice(0, 45000);
+    if (!documentText) return res.status(422).json({ error: 'No selectable text was found. Scanned/image-only PDFs need OCR and are not supported in this first version.' });
+    const model = TEXT_MODEL;
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: NOVA_SYSTEM_PROMPT + '\\n\\nYou are analyzing an uploaded PDF. Use only the extracted document text for document-specific facts. If information is missing, say so. When page markers are available, cite page numbers. Do not claim to have read images or scanned pages.' },
+          { role: 'user', content: 'PDF filename: ' + req.file.originalname + '\\n\\nUser instruction: ' + prompt + '\\n\\nExtracted PDF text:\\n' + documentText }
+        ],
+        temperature: 0.3,
+        max_tokens: 3000
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) return res.status(response.status).json({ error: data?.error?.message || 'PDF analysis failed.' });
+    const reply = data.choices?.[0]?.message?.content?.trim();
+    if (!reply) return res.status(502).json({ error: 'The AI returned no PDF analysis. Please try again.' });
+    res.json({ reply, documentText, pageCount: parsed.numpages || null, filename: req.file.originalname });
+  } catch (error) {
+    res.status(500).json({ error: 'PDF processing error: ' + (error.message || 'Unknown error') });
   }
 });
 
