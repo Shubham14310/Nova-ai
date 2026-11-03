@@ -72,6 +72,7 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   const [codingMode, setCodingMode] = useState(false);
+  const [studyMode, setStudyMode] = useState(false);
   const [availableVoices, setAvailableVoices] = useState([]);
   const [selectedVoice, setSelectedVoice] = useState(null);
   const [speechRate, setSpeechRate] = useState(0.95);
@@ -217,8 +218,9 @@ export default function App() {
   async function persist(nextMessages, nextId = chatId) {
     if (temporaryChat) return;
     const existingTitle = chats.find(c => c.id === nextId)?.title;
+    const existingChat = chats.find(c => c.id === nextId);
     const nextChats = [{ id: nextId, title: existingTitle || nextMessages.find(m => m.role === 'user')?.content?.slice(0, 32) || 'New chat',
-      updatedAt: Date.now(), messages: nextMessages }, ...chats.filter(c => c.id !== nextId)].slice(0, 30);
+      pinned: Boolean(existingChat?.pinned), updatedAt: Date.now(), messages: nextMessages }, ...chats.filter(c => c.id !== nextId)].sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.updatedAt - a.updatedAt).slice(0, 30);
     setChats(nextChats);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextChats));
     if (session?.access_token && session?.user?.id) {
@@ -245,7 +247,7 @@ export default function App() {
 
   async function updateChatTitle(id, title) {
     const cleaned = title.trim().slice(0, 60); if (!cleaned) return;
-    const updated = chats.map(chat => chat.id === id ? { ...chat, title: cleaned, updatedAt: Date.now() } : chat);
+    const updated = chats.map(chat => chat.id === id ? { ...chat, title: cleaned, updatedAt: Date.now() } : chat).sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.updatedAt - a.updatedAt);
     setChats(updated); await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     if (session?.access_token) { try { await fetch(SUPABASE_URL + '/rest/v1/nova_chat_history?id=eq.' + encodeURIComponent(id), { method: 'PATCH', headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify({ title: cleaned, updated_at: new Date().toISOString() }) }); } catch {} }
     setEditingChat(null);
@@ -257,6 +259,13 @@ export default function App() {
       if (chatId === id) { setMessages([]); setChatId(String(Date.now())); }
     }}]);
   }
+  async function togglePinnedChat(id) {
+    const updated = chats.map(chat => chat.id === id ? { ...chat, pinned: !chat.pinned } : chat)
+      .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.updatedAt - a.updatedAt);
+    setChats(updated);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  }
+
   function newChat() { setMessages([]); setImage(null); setChatId(String(Date.now())); setTemporaryChat(false); setShowHistory(false); setShowVoiceSettings(false); setShowSettings(false); setShowAuth(false); setShowProfile(false); setShowMenu(false); }
 
   async function shareCurrentChat() {
@@ -352,6 +361,7 @@ export default function App() {
 
       const payloadMessages = [
         ...(customInstructions.trim() ? [{ role: 'system', content: 'User custom instructions (follow when safe and relevant): ' + customInstructions.trim().slice(0, 1500) }] : []),
+        ...(studyMode ? [{ role: 'system', content: 'STUDY MODE: Be a patient tutor. Explain concepts in clear, age-appropriate steps, use simple examples, define difficult words, check understanding with a short practice question when useful, and guide the learner instead of doing assessed work for them. Adapt to the requested language. Do not invent facts.' }] : []),
         ...(codingMode ? [{ role: 'system', content: 'CODING MODE: Act as an expert senior software engineer and patient coding tutor. Understand the user’s goal before coding. Provide correct, runnable, complete code (not vague snippets) when they ask to build something; preserve existing project structure and explain exactly which file to edit and where. For bug fixes, identify the likely root cause, give the corrected full relevant file or precise patch, and explain how to test it. Use current best practices, safe input handling, error states, accessibility, and mobile-friendly UI when relevant. Do not invent APIs or claim you ran the code. If essential details are missing, ask one concise question; otherwise make sensible assumptions and state them. For Hindi/Hinglish requests, explain simply in Hinglish. When a task is large, deliver a working first milestone and then continue incrementally.' }] : []),
         ...(previousContext ? [{
           role: 'system',
@@ -515,10 +525,11 @@ export default function App() {
             <FlatList data={chats.filter(item => (item.title || '').toLowerCase().includes(historySearch.trim().toLowerCase()) || (item.messages || []).some(m => String(m.content || '').toLowerCase().includes(historySearch.trim().toLowerCase())))} keyExtractor={item => item.id} renderItem={({ item }) => (
               <View style={{ padding: 13, backgroundColor: '#20212A', borderRadius: 13, marginBottom: 8 }}>
                 <TouchableOpacity onPress={() => { setChatId(item.id); setMessages(item.messages || []); setShowHistory(false); }}>
-                  <Text style={{ color: '#F5F5FA', fontWeight: '600' }}>{item.title || 'Chat'}</Text>
+                  <Text style={{ color: '#F5F5FA', fontWeight: '600' }}>{item.pinned ? '📌 ' : ''}{item.title || 'Chat'}</Text>
                   <Text style={{ color: '#8F91A2', fontSize: 11, marginTop: 4 }}>{new Date(item.updatedAt).toLocaleString()}</Text>
                 </TouchableOpacity>
                 <View style={{ flexDirection: 'row', marginTop: 10 }}>
+                  <TouchableOpacity onPress={() => togglePinnedChat(item.id)} style={{ paddingHorizontal: 11, paddingVertical: 7, borderRadius: 8, backgroundColor: '#393449', marginRight: 8 }}><Text style={{ color: '#D8D1FF', fontSize: 12 }}>{item.pinned ? 'Unpin' : 'Pin'}</Text></TouchableOpacity>
                   <TouchableOpacity onPress={() => { setEditingChat(item.id); setChatTitleInput(item.title || ''); }} style={{ paddingHorizontal: 11, paddingVertical: 7, borderRadius: 8, backgroundColor: '#393449', marginRight: 8 }}><Text style={{ color: '#D8D1FF', fontSize: 12 }}>Rename</Text></TouchableOpacity>
                   <TouchableOpacity onPress={() => deleteChat(item.id)} style={{ paddingHorizontal: 11, paddingVertical: 7, borderRadius: 8, backgroundColor: '#39272D' }}><Text style={{ color: '#FFB5B5', fontSize: 12 }}>Delete</Text></TouchableOpacity>
                 </View>
@@ -546,6 +557,7 @@ export default function App() {
         {!showHistory && !showVoiceSettings && !showSettings && !showAuth && !showProfile ? <>{busy ? <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10 }}><ActivityIndicator color="#A99BFF" /><Text style={{ color: '#A3A4B4', marginLeft: 9 }}>Nova is thinking...</Text></View> : null}
         {image ? <View style={{ paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center' }}><Image source={{ uri: image.uri }} style={{ width: 56, height: 56, borderRadius: 10 }} /><TouchableOpacity onPress={() => setImage(null)}><Text style={{ color: '#FF9A9A', marginLeft: 12 }}>Remove image</Text></TouchableOpacity></View> : null}
         <View style={{ paddingHorizontal: 12, paddingTop: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <TouchableOpacity onPress={() => setStudyMode(v => !v)} style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9, backgroundColor: studyMode ? '#45366B' : '#22232D' }}><Text style={{ color: studyMode ? '#E4DBFF' : '#A3A4B4', fontSize: 11, fontWeight: '700' }}>{studyMode ? '📚 Study ON' : '📚 Study mode'}</Text></TouchableOpacity>
           <TouchableOpacity onPress={() => setTemporaryChat(v => !v)} style={{ paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9, backgroundColor: temporaryChat ? '#45366B' : '#22232D' }}><Text style={{ color: temporaryChat ? '#E4DBFF' : '#A3A4B4', fontSize: 11, fontWeight: '700' }}>{temporaryChat ? '◉ Temporary chat ON' : '◯ Temporary chat'}</Text></TouchableOpacity>
           <TouchableOpacity onPress={shareCurrentChat} style={{ paddingHorizontal: 10, paddingVertical: 7 }}><Text style={{ color: '#B9AFFF', fontSize: 11 }}>↗ Share chat</Text></TouchableOpacity>
         </View>
