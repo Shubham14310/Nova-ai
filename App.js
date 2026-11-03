@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Speech from 'expo-speech';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
+import { NativeAd, NativeAdView, NativeAsset, NativeAssetType, NativeMediaView, TestIds } from 'react-native-google-mobile-ads';
 
 const API_BASE = Constants.expoConfig?.extra?.apiBaseUrl || '';
 const STORAGE_KEY = 'nova_ai_chats_v1';
@@ -15,6 +16,38 @@ const AUTH_KEY = 'nova_ai_session_v1';
 const FREE_MESSAGES_KEY = 'nova_ai_guest_messages_v1';
 const SUPABASE_URL = 'https://icnhaeqdqxrckbfsxmne.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_nvQsuah4Kru_3MPA-MhrLA_XhFSRvB8';
+
+function SponsoredNativeAd() {
+  const [nativeAd, setNativeAd] = useState(null);
+  useEffect(() => {
+    let active = true;
+    let createdAd = null;
+    NativeAd.createForAdRequest(TestIds.NATIVE)
+      .then(ad => { createdAd = ad; if (active) setNativeAd(ad); else ad.destroy(); })
+      .catch(() => {});
+    return () => { active = false; if (createdAd) createdAd.destroy(); };
+  }, []);
+  if (!nativeAd) return null;
+  return (
+    <NativeAdView nativeAd={nativeAd} style={{ width: '100%', alignSelf: 'stretch', backgroundColor: '#1C1D27', borderColor: '#343344', borderWidth: 1, borderRadius: 15, padding: 11, marginTop: 12, marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <Text style={{ color: '#B9AFFF', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>SPONSORED</Text>
+        <Text style={{ color: '#88899A', fontSize: 17 }}>⋮</Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <NativeMediaView style={{ width: 76, height: 76, borderRadius: 10, overflow: 'hidden' }} />
+        <View style={{ flex: 1, marginLeft: 11 }}>
+          <NativeAsset assetType={NativeAssetType.HEADLINE}><Text numberOfLines={2} style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>{nativeAd.headline}</Text></NativeAsset>
+          {nativeAd.body ? <NativeAsset assetType={NativeAssetType.BODY}><Text numberOfLines={2} style={{ color: '#B8B8C7', fontSize: 12, marginTop: 4 }}>{nativeAd.body}</Text></NativeAsset> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 7 }}>
+            {nativeAd.advertiser ? <NativeAsset assetType={NativeAssetType.ADVERTISER}><Text numberOfLines={1} style={{ color: '#858698', fontSize: 10 }}>{nativeAd.advertiser}</Text></NativeAsset> : <View />}
+            {nativeAd.callToAction ? <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}><View style={{ backgroundColor: '#6547E8', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 11 }}><Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>{nativeAd.callToAction}</Text></View></NativeAsset> : null}
+          </View>
+        </View>
+      </View>
+    </NativeAdView>
+  );
+}
 
 export default function App() {
   const [showLaunchSplash, setShowLaunchSplash] = useState(true);
@@ -413,6 +446,7 @@ export default function App() {
         <TouchableOpacity onPress={() => speak(item.content)}><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▶ Read aloud</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => copyReply(item.content)} accessibilityLabel="Copy Nova reply"><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▢ Copy</Text></TouchableOpacity>
       </View> : <TouchableOpacity onPress={async () => { const revised = messages.slice(0, index); setMessages(revised); setInput(String(item.content || '')); await persist(revised); }} style={{ marginTop: 8, alignSelf: 'flex-end' }}><Text style={{ color: '#D8D1FF', fontSize: 12 }}>✎ Edit</Text></TouchableOpacity>}
+      {item.role === 'assistant' && index === messages.length - 1 ? <SponsoredNativeAd /> : null}
     </View>
   );
 
