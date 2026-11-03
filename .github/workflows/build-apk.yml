@@ -1,6 +1,16 @@
 name: Build Nova AI Android APK
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "App.js"
+      - "app.json"
+      - "eas.json"
+      - "package.json"
+      - "server/**"
+      - "assets/**"
+      - ".github/workflows/build-apk.yml"
   workflow_dispatch:
   push:
     branches: [main]
