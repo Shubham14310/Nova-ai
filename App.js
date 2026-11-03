@@ -346,7 +346,9 @@ export default function App() {
       await persist(next);
       // Detect image requests in English, Hindi and Hinglish from the normal chat composer.
       const imageIntent = /(?:\b(?:generate|create|draw|make|paint)\b.{0,100}\b(?:image|picture|photo|art|illustration)\b)|(?:\b(?:image|picture|photo|art|illustration|tasveer|tasvir)\b.{0,100}\b(?:bana(?:o|do)?|bana\s*do|banado|create|generate|draw)\b)|(?:\b(?:bana(?:o|do)?|bana\s*do|banado|make|create|generate|draw)\b.{0,100}\b(?:image|picture|photo|art|illustration|tasveer|tasvir)\b)|(?:(?:फोटो|तस्वीर|इमेज|चित्र).{0,100}(?:बना|बनाओ|बना\s*दो|तैयार))|(?:(?:बना|बनाओ|बना\s*दो|तैयार).{0,100}(?:फोटो|तस्वीर|इमेज|चित्र))/i;
-      if (imageIntent.test(text)) {
+      const photoEditIntent = /(?:\\b(?:edit|change|replace|remove|add|transform|make|put|show)\\b.{0,100}\\b(?:background|clothes|outfit|shirt|suit|scene|setting|photo|picture|image|portrait)\\b)|(?:\\b(?:background|kapde|kapda|dress|suit|shirt|photo|tasveer|tasvir)\\b.{0,100}\\b(?:badal|change|replace|hata|lagao|karo|kar do|banao|dikhao)\\b)|(?:\\b(?:badal do|change karo|edit karo|bana do|dikhao|background change)\\b)|(?:(?:बैकग्राउंड|कपड़े|फोटो|तस्वीर).{0,100}(?:बदल|बदलो|बदलिए|करो|बना|दिखाओ))/i;
+      const shouldEditUploadedPhoto = Boolean(image?.base64 && text && photoEditIntent.test(text));
+      if (imageIntent.test(text) || shouldEditUploadedPhoto) {
         const prompt = text
           .replace(/^(?:please\s+)?(?:generate|create|draw|make|paint)(?:\s+me)?\s+(?:an?\s+)?(?:image|picture|photo|art|illustration)(?:\s+(?:of|for))?\s*/i, '')
           .replace(/^(?:ek|एक)\s+/i, '')
@@ -356,12 +358,12 @@ export default function App() {
         try {
           const imageResponse = await fetch(`${API_BASE.replace(/\/+$/, '')}/api/images/generate`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt })
+            body: JSON.stringify({ prompt, imageBase64: shouldEditUploadedPhoto ? image.base64 : undefined, imageMimeType: shouldEditUploadedPhoto ? (image.mimeType || 'image/jpeg') : undefined })
           });
           const imageData = await imageResponse.json();
           if (!imageResponse.ok) throw new Error(imageData.error || `Image generation failed (HTTP ${imageResponse.status})`);
           if (!imageData.imageBase64) throw new Error('Image service returned no image.');
-          const generated = { role: 'assistant', content: 'Ye rahi aapki image ✨', imageUri: `data:${imageData.mimeType || 'image/jpeg'};base64,${imageData.imageBase64}` };
+          const generated = { role: 'assistant', content: shouldEditUploadedPhoto ? 'Aapki edited photo tayyar hai ✨ Maine original face ko preserve karne ki koshish ki hai.' : 'Ye rahi aapki image ✨', imageUri: `data:${imageData.mimeType || 'image/jpeg'};base64,${imageData.imageBase64}` };
           const completed = [...next, generated];
           setMessages(completed); await persist(completed);
           return;
