@@ -65,6 +65,7 @@ export default function App() {
   const [editingChat, setEditingChat] = useState(null);
   const [chatTitleInput, setChatTitleInput] = useState('');
   const [showMenu, setShowMenu] = useState(false);
+  const [showPlusMenu, setShowPlusMenu] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [session, setSession] = useState(null);
@@ -605,14 +606,32 @@ export default function App() {
         <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: '#282936' }}>
           {pdfFile ? <TouchableOpacity onPress={() => setPdfFile(null)} style={{ alignSelf: 'flex-start', backgroundColor: '#302A45', paddingHorizontal: 10, paddingVertical: 7, borderRadius: 9, marginBottom: 8 }}><Text style={{ color: '#D8D1FF', fontSize: 11 }}>📄 {pdfFile.name} ×</Text></TouchableOpacity> : null}
           <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-          <TouchableOpacity onPress={chooseImage} style={{ backgroundColor: '#282936', padding: 13, borderRadius: 15, marginRight: 6 }}><Text style={{ color: '#D5CEFF', fontSize: 18 }}>＋</Text></TouchableOpacity>
-          <TouchableOpacity onPress={choosePdf} style={{ backgroundColor: '#282936', padding: 12, borderRadius: 15, marginRight: 7 }}><Text style={{ color: '#D5CEFF', fontSize: 13, fontWeight: '800' }}>PDF</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityLabel="Open attachments and tools" onPress={() => setShowPlusMenu(true)} style={{ backgroundColor: '#282936', padding: 13, borderRadius: 15, marginRight: 7 }}><Text style={{ color: '#D5CEFF', fontSize: 20, fontWeight: '700' }}>＋</Text></TouchableOpacity>
           <TextInput value={input} onChangeText={setInput} placeholder="Message Nova AI..." placeholderTextColor="#77798B" multiline blurOnSubmit={false} returnKeyType="default"
             style={{ flex: 1, maxHeight: 130, minHeight: 48, color: '#FFFFFF', backgroundColor: '#22232D', borderRadius: 16, paddingHorizontal: 15, paddingVertical: 13, fontSize: 15, textAlignVertical: 'top' }} />
           <TouchableOpacity onPress={send} disabled={busy} style={{ backgroundColor: '#7659F5', paddingHorizontal: 16, paddingVertical: 15, borderRadius: 15, marginLeft: 8, opacity: busy ? 0.5 : 1 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>↑</Text></TouchableOpacity>
           </View>
         </View>
         <Text style={{ color: '#696B7B', fontSize: 10, textAlign: 'center', paddingBottom: 7 }}>Nova AI can make mistakes. Check important information.</Text></> : null}
+        {showPlusMenu ? <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: 0, zIndex: 45, elevation: 45, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>
+          <TouchableOpacity onPress={() => setShowPlusMenu(false)} style={{ flex: 1 }} />
+          <View style={{ backgroundColor: '#1B1C27', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18, paddingBottom: 28, borderWidth: 1, borderColor: '#343344' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800' }}>Tools & attachments</Text>
+              <TouchableOpacity onPress={() => setShowPlusMenu(false)}><Text style={{ color: '#B9AFFF', fontSize: 24 }}>×</Text></TouchableOpacity>
+            </View>
+            {[
+              { icon: '🎨', title: 'Create image', subtitle: 'Generate an image from your prompt', action: () => { setInput(current => current || 'Create an image of '); setShowPlusMenu(false); } },
+              { icon: '🖼️', title: 'Upload image', subtitle: 'Attach a photo or use it for editing', action: () => { setShowPlusMenu(false); chooseImage(); } },
+              { icon: '📄', title: 'Upload PDF', subtitle: 'Ask questions or get a PDF summary', action: () => { setShowPlusMenu(false); choosePdf(); } },
+              { icon: '📚', title: studyMode ? 'Study mode: ON' : 'Study mode', subtitle: 'Learn topics with step-by-step guidance', action: () => { setStudyMode(value => !value); setShowPlusMenu(false); } }
+            ].map(item => <TouchableOpacity key={item.title} onPress={item.action} style={{ flexDirection: 'row', alignItems: 'center', padding: 13, borderRadius: 14, backgroundColor: '#262533', marginBottom: 9 }}>
+              <View style={{ width: 43, height: 43, borderRadius: 12, backgroundColor: '#39314F', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}><Text style={{ fontSize: 21 }}>{item.icon}</Text></View>
+              <View style={{ flex: 1 }}><Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>{item.title}</Text><Text style={{ color: '#A3A4B4', fontSize: 11, marginTop: 3 }}>{item.subtitle}</Text></View>
+              <Text style={{ color: '#9E91D8', fontSize: 20 }}>›</Text>
+            </TouchableOpacity>)}
+          </View>
+        </View> : null}
         {showMenu ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 30, elevation: 30, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.58)' }}>
           <View style={{ width: '82%', maxWidth: 330, backgroundColor: '#191A24', paddingTop: 18, paddingHorizontal: 18, paddingBottom: 24 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
