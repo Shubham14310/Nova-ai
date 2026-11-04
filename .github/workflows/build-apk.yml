@@ -47,6 +47,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Align Expo native packages with the installed SDK
+        run: |
+          npx expo install --fix
+          npx expo install --check
+
       - name: Install SDK-compatible splash screen package
         run: npx expo install expo-splash-screen
 
