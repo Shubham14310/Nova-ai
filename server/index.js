@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 
 const app = express();
 app.use(cors());
@@ -131,6 +132,71 @@ app.post('/api/images/generate', async (req, res) => {
     res.json({ imageBase64, mimeType: 'image/jpeg', model });
   } catch (error) {
     res.status(500).json({ error: 'Image generation error: ' + error.message });
+  }
+});
+
+app.post('/api/images/edit', async (req, res) => {
+  try {
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    const token = process.env.CLOUDFLARE_API_TOKEN;
+    if (!accountId || !token) {
+      return res.status(503).json({ error: 'Image editing is not configured. Add Cloudflare credentials to the backend environment.' });
+    }
+
+    const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
+    const imageBase64 = typeof req.body?.imageBase64 === 'string' ? req.body.imageBase64 : '';
+    const mimeType = typeof req.body?.mimeType === 'string' ? req.body.mimeType : 'image/jpeg';
+    if (!prompt) return res.status(400).json({ error: 'Please write what you want changed in the photo.' });
+    if (!/^image\/(jpeg|png|webp)$/.test(mimeType)) return res.status(400).json({ error: 'Use a JPG, PNG or WebP photo.' });
+    if (!imageBase64 || imageBase64.length > 8 * 1024 * 1024) {
+      return res.status(413).json({ error: 'Photo is missing or too large. Please choose a smaller image (under 6 MB).' });
+    }
+
+    const imageBytes = Buffer.from(imageBase64.replace(/^data:image\/[^;]+;base64,/, ''), 'base64');
+    if (!imageBytes.length) return res.status(400).json({ error: 'The selected photo could not be read.' });
+
+    const form = new FormData();
+    form.append('prompt', 'Edit the supplied photo according to this request: ' + prompt + '. Preserve the original person identity, facial features, face shape, skin tone and expression as closely as possible. Do not replace or redesign the person. ' +
+      'If the requested change conflicts with identity preservation, prioritize preserving the person.');
+    form.append('input_image_0', new Blob([imageBytes], { type: mimeType }), 'reference-photo');
+    form.append('width', '1024');
+    form.append('height', '1024');
+
+    const model = '@cf/black-forest-labs/flux-2-klein-4b';
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${encodeURIComponent(model)}`,
+      { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }
+    );
+    const data = await response.json();
+    if (!response.ok || data?.success === false) {
+      const message = data?.errors?.[0]?.message || data?.error?.message;
+      return res.status(response.status || 502).json({ error: message || 'The image editor could not process this photo.' });
+    }
+
+    const image = data?.result?.image;
+    if (typeof image !== 'string' || !image) {
+      return res.status(502).json({ error: 'The image editor returned no image.' });
+    }
+    res.json({ imageBase64: image, mimeType: 'image/jpeg', model });
+  } catch (error) {
+    res.status(500).json({ error: 'Photo editing error: ' + error.message });
+  }
+});
+
+app.post('/api/pdf/extract', async (req, res) => {
+  try {
+    const fileName = typeof req.body?.fileName === 'string' ? req.body.fileName : 'document.pdf';
+    const pdfBase64 = typeof req.body?.pdfBase64 === 'string' ? req.body.pdfBase64 : '';
+    if (!fileName.toLowerCase().endsWith('.pdf')) return res.status(400).json({ error: 'Please upload a PDF file.' });
+    if (!pdfBase64 || pdfBase64.length > 11 * 1024 * 1024) return res.status(413).json({ error: 'PDF is missing or too large. Please choose a PDF under 8 MB.' });
+    const buffer = Buffer.from(pdfBase64, 'base64');
+    if (!buffer.length || buffer.subarray(0, 5).toString() !== '%PDF-') return res.status(400).json({ error: 'This file does not appear to be a valid PDF.' });
+    const parsed = await pdfParse(buffer);
+    const extractedText = String(parsed.text || '').replace(/\u0000/g, '').trim();
+    if (!extractedText) return res.status(422).json({ error: 'No selectable text was found. Scanned/image-only PDFs need OCR, which is not enabled yet.' });
+    res.json({ text: extractedText.slice(0, 60000), pages: parsed.numpages || 0, truncated: extractedText.length > 60000 });
+  } catch {
+    res.status(422).json({ error: 'Could not read this PDF. It may be damaged, password-protected or unsupported.' });
   }
 });
 
