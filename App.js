@@ -323,7 +323,8 @@ export default function App() {
       await persist(next);
       // Detect image requests in English, Hindi and Hinglish from the normal chat composer.
       const imageIntent = /(?:\b(?:generate|create|draw|make|paint)\b.{0,100}\b(?:image|picture|photo|art|illustration)\b)|(?:\b(?:image|picture|photo|art|illustration|tasveer|tasvir)\b.{0,100}\b(?:bana(?:o|do)?|bana\s*do|banado|create|generate|draw)\b)|(?:\b(?:bana(?:o|do)?|bana\s*do|banado|make|create|generate|draw)\b.{0,100}\b(?:image|picture|photo|art|illustration|tasveer|tasvir)\b)|(?:(?:फोटो|तस्वीर|इमेज|चित्र).{0,100}(?:बना|बनाओ|बना\s*दो|तैयार))|(?:(?:बना|बनाओ|बना\s*दो|तैयार).{0,100}(?:फोटो|तस्वीर|इमेज|चित्र))/i;
-      if (imageIntent.test(text)) {
+      const photoEditIntent = Boolean(image?.base64 && /\b(edit|change|replace|remove|add|make me|put me|wearing|background|style|बदल|बना दो|कर दो)\b/i.test(text));
+      if (imageIntent.test(text) || photoEditIntent) {
         const prompt = text
           .replace(/^(?:please\s+)?(?:generate|create|draw|make|paint)(?:\s+me)?\s+(?:an?\s+)?(?:image|picture|photo|art|illustration)(?:\s+(?:of|for))?\s*/i, '')
           .replace(/^(?:ek|एक)\s+/i, '')
