@@ -331,14 +331,17 @@ export default function App() {
           .replace(/\s+(?:banao|bana\s*do|banado|बनाओ|बना\s*दो)\s*$/i, '')
           .trim() || text;
         try {
-          const imageResponse = await fetch(`${API_BASE.replace(/\/+$/, '')}/api/images/generate`, {
+          const editingPhoto = Boolean(image?.base64);
+          const imageResponse = await fetch(`${API_BASE.replace(/\/+$/, '')}/api/images/${editingPhoto ? 'edit' : 'generate'}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt })
+            body: JSON.stringify(editingPhoto
+              ? { prompt, imageBase64: image.base64, mimeType: image.mimeType || 'image/jpeg' }
+              : { prompt })
           });
           const imageData = await imageResponse.json();
           if (!imageResponse.ok) throw new Error(imageData.error || `Image generation failed (HTTP ${imageResponse.status})`);
           if (!imageData.imageBase64) throw new Error('Image service returned no image.');
-          const generated = { role: 'assistant', content: 'Ye rahi aapki image ✨', imageUri: `data:${imageData.mimeType || 'image/jpeg'};base64,${imageData.imageBase64}` };
+          const generated = { role: 'assistant', content: editingPhoto ? 'Aapki photo prompt ke mutabik edit ki gayi hai ✨' : 'Ye rahi aapki image ✨', imageUri: `data:${imageData.mimeType || 'image/jpeg'};base64,${imageData.imageBase64}` };
           const completed = [...next, generated];
           setMessages(completed); await persist(completed);
           return;
