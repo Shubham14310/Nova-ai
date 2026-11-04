@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import pdfParse from 'pdf-parse';
 
 const app = express();
 app.use(cors());
@@ -179,6 +180,23 @@ app.post('/api/images/edit', async (req, res) => {
     res.json({ imageBase64: image, mimeType: 'image/jpeg', model });
   } catch (error) {
     res.status(500).json({ error: 'Photo editing error: ' + error.message });
+  }
+});
+
+app.post('/api/pdf/extract', async (req, res) => {
+  try {
+    const fileName = typeof req.body?.fileName === 'string' ? req.body.fileName : 'document.pdf';
+    const pdfBase64 = typeof req.body?.pdfBase64 === 'string' ? req.body.pdfBase64 : '';
+    if (!fileName.toLowerCase().endsWith('.pdf')) return res.status(400).json({ error: 'Please upload a PDF file.' });
+    if (!pdfBase64 || pdfBase64.length > 11 * 1024 * 1024) return res.status(413).json({ error: 'PDF is missing or too large. Please choose a PDF under 8 MB.' });
+    const buffer = Buffer.from(pdfBase64, 'base64');
+    if (!buffer.length || buffer.subarray(0, 5).toString() !== '%PDF-') return res.status(400).json({ error: 'This file does not appear to be a valid PDF.' });
+    const parsed = await pdfParse(buffer);
+    const extractedText = String(parsed.text || '').replace(/\u0000/g, '').trim();
+    if (!extractedText) return res.status(422).json({ error: 'No selectable text was found. Scanned/image-only PDFs need OCR, which is not enabled yet.' });
+    res.json({ text: extractedText.slice(0, 60000), pages: parsed.numpages || 0, truncated: extractedText.length > 60000 });
+  } catch {
+    res.status(422).json({ error: 'Could not read this PDF. It may be damaged, password-protected or unsupported.' });
   }
 });
 
