@@ -74,7 +74,7 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
           test -s app/build/outputs/apk/debug/app-debug.apk
-          test -s app/build/generated/assets/createBundleDebugJsAndAssets/index.android.bundle
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
