@@ -621,7 +621,6 @@ export default function App() {
               <TouchableOpacity onPress={() => setShowPlusMenu(false)}><Text style={{ color: '#B9AFFF', fontSize: 24 }}>×</Text></TouchableOpacity>
             </View>
             {[
-              { icon: '🎨', title: 'Create image', subtitle: 'Generate an image from your prompt', action: () => { setInput(current => current || 'Create an image of '); setShowPlusMenu(false); } },
               { icon: '🖼️', title: 'Upload image', subtitle: 'Attach a photo or use it for editing', action: () => { setShowPlusMenu(false); chooseImage(); } },
               { icon: '📄', title: 'Upload PDF', subtitle: 'Ask questions or get a PDF summary', action: () => { setShowPlusMenu(false); choosePdf(); } },
               { icon: '📚', title: studyMode ? 'Study mode: ON' : 'Study mode', subtitle: 'Learn topics with step-by-step guidance', action: () => { setStudyMode(value => !value); setShowPlusMenu(false); } }
