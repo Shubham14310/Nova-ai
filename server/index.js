@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import pdfParse from 'pdf-parse';
+import pdfParse from 'pdf-parse/lib/pdf-parse.js';
 
 const app = express();
 app.use(cors());
