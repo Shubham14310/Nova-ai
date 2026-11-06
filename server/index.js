@@ -248,10 +248,20 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'Messages are required.' });
     }
 
-    const hasImage = messages.some(message =>
-      Array.isArray(message?.content) &&
-      message.content.some(part => part?.type === 'image_url' && part?.image_url?.url)
-    );
+    // Select the vision model only when the newest user message includes an image.
+    // Older image attachments should not force ordinary follow-up text prompts onto the
+    // vision model (which has a tighter input-token-per-minute quota).
+    const latestUserMessage = [...messages].reverse().find(message => message?.role === 'user');
+    const hasImage = Array.isArray(latestUserMessage?.content) &&
+      latestUserMessage.content.some(part => part?.type === 'image_url' && part?.image_url?.url);
+
+    // When handling a text-only follow-up, omit historical image payloads so the
+    // text model receives a compatible conversation history without huge image tokens.
+    const chatMessages = hasImage ? messages : messages.map(message => {
+      if (!Array.isArray(message?.content)) return message;
+      const textParts = message.content.filter(part => part?.type !== 'image_url');
+      return { ...message, content: textParts.length ? textParts : [{ type: 'text', text: '[Earlier image attachment omitted from text-only follow-up.]' }] };
+    });
 
     let liveContext = '';
     let liveSearchError = null;
@@ -281,7 +291,7 @@ app.post('/api/chat', async (req, res) => {
         model,
         messages: [
           { role: 'system', content: systemContent },
-          ...messages
+          ...chatMessages
         ],
         tool_choice: 'none',
         temperature: 0.5,
