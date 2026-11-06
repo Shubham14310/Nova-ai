@@ -121,6 +121,19 @@ body{background-color:#07131b;background-image:radial-gradient(ellipse at 8% 0%,
 footer{background:#06131bea;border-color:#2dd4bf33}
 footer a:hover{color:#5eead4}
 @media(max-width:700px){.nav{padding:12px 4%}.hero{padding-top:62px}.primary{width:100%}}
+
+.feedback-section{padding:12px 0 58px}
+.feedback-card{max-width:760px;margin:auto;background:linear-gradient(145deg,#102a35ed,#0b1b28f5);border:1px solid #2dd4bf55;border-radius:22px;padding:clamp(20px,4vw,30px);box-shadow:0 12px 34px #020a1055}
+.feedback-card h2{margin:0 0 6px;font-size:clamp(1.5rem,4vw,2rem)}
+.feedback-card>p{margin:0 0 20px;color:var(--muted)}
+.feedback-form{display:grid;gap:13px}
+.feedback-form label{display:grid;gap:6px;font-weight:700;font-size:.9rem;color:#e6faff}
+.feedback-form input,.feedback-form select,.feedback-form textarea{width:100%;border:1px solid #347184;border-radius:12px;background:#071923;color:#f0fbff;padding:12px 13px;font:inherit}
+.feedback-form textarea{min-height:125px;resize:vertical}
+.feedback-form input:focus,.feedback-form select:focus,.feedback-form textarea:focus{outline:2px solid #2dd4bf88;border-color:#5eead4}
+.feedback-submit{border:0;cursor:pointer;font:inherit;font-weight:800}
+.feedback-status{min-height:24px;color:#9ef2df;font-size:.9rem}
+@media(max-width:600px){.feedback-card{padding:19px}}
 </style>
 </head>
 <body>
@@ -168,6 +181,21 @@ footer a:hover{color:#5eead4}
     <span>Second ad placement · Ads are not active yet.</span>
   </div>
 </section>
+
+<section class="wrap feedback-section" id="feedback">
+  <div class="feedback-card">
+    <h2>Send feedback to Nova AI</h2>
+    <p>Bug, login issue, image problem ya koi suggestion? Yahan likho. Your message will be sent to the Nova AI support email.</p>
+    <form class="feedback-form" id="feedback-form">
+      <label>Your name (optional)<input name="name" maxlength="80" autocomplete="name" placeholder="Enter your name"></label>
+      <label>Feedback type<select name="feedback_type" required><option value="">Choose a topic</option><option>Bug / App not working</option><option>Login or account issue</option><option>Image generation or editing</option><option>PDF upload or reading</option><option>Voice feature</option><option>Suggestion</option><option>Other</option></select></label>
+      <label>Describe the problem<textarea name="message" required minlength="5" maxlength="5000" placeholder="What happened? What were you trying to do?"></textarea></label>
+      <button class="btn primary feedback-submit" id="feedback-submit" type="submit">Send feedback</button>
+      <div class="feedback-status" id="feedback-status" role="status" aria-live="polite"></div>
+    </form>
+  </div>
+</section>
+
 <section class="wrap about"><h2>Made to make AI feel simple.</h2><p>Nova AI brings chat, image questions and voice tools together in one place. Explore the app and follow the official project updates on GitHub.</p></section>
 </main>
 <footer><div class="wrap foot"><span>© <span id="year">2026</span> Nova AI</span><span><a href="https://github.com/Shubham14310/Nova-ai" target="_blank" rel="noopener">GitHub</a> · <a href="https://github.com/Shubham14310/Nova-ai/issues" target="_blank" rel="noopener">Support</a></span></div></footer>
@@ -193,6 +221,36 @@ footer a:hover{color:#5eead4}
   }
 })();
 document.getElementById('year').textContent = new Date().getFullYear();
+
+document.getElementById('feedback-form').addEventListener('submit', async function(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = document.getElementById('feedback-submit');
+  const status = document.getElementById('feedback-status');
+  button.disabled = true;
+  button.textContent = 'Sending…';
+  status.textContent = '';
+  const data = Object.fromEntries(new FormData(form).entries());
+  data._subject = 'Nova AI website feedback';
+  data._template = 'table';
+  try {
+    const response = await fetch('https://formsubmit.co/ajax/bedekarshubham9@gmail.com', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const result = await response.json();
+    if (!response.ok || result.success === 'false' || result.success === false) throw new Error('Could not send feedback');
+    form.reset();
+    status.textContent = 'Thanks! Your feedback has been submitted.';
+  } catch (error) {
+    status.textContent = 'Feedback could not be sent right now. Please try again later.';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Send feedback';
+  }
+});
+
 </script>
 
 </body></html>
