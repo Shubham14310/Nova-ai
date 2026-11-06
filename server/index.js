@@ -191,23 +191,6 @@ async function reserveNovaImageQuota(req) {
   return { allowed: true, accessToken, quota: data };
 }
 
-async function refundNovaImageQuota(accessToken) {
-  if (!accessToken) return;
-  try {
-    await fetch(`${SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/rpc/refund_nova_image_quota`, {
-      method: 'POST',
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: '{}'
-    });
-  } catch {
-    // A failed provider request should not normally consume a user's daily quota.
-  }
-}
-
 app.get('/api/images/quota', async (req, res) => {
   try {
     const authorization = req.headers.authorization || '';
@@ -237,7 +220,6 @@ app.get('/api/images/quota', async (req, res) => {
 });
 
 app.post('/api/images/generate', async (req, res) => {
-  let quotaReservation = null;
   try {
     const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
     const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
@@ -269,7 +251,6 @@ app.post('/api/images/generate', async (req, res) => {
         quota: quotaCheck.quota
       });
     }
-    quotaReservation = quotaCheck.accessToken;
 
     // Use FLUX.2's structured JSON prompting when the text model returns valid JSON.
     // If prompt enhancement is unavailable, preserve the user's original request.
@@ -328,16 +309,12 @@ app.post('/api/images/generate', async (req, res) => {
       const providerMessage = data?.errors?.[0]?.message || data?.error?.message || '';
       if (/used up.*daily free allocation|daily free allocation.*neurons|daily.*neurons/i.test(providerMessage)) {
         imageQuotaBlockedUntil = getNextUtcReset();
-        await refundNovaImageQuota(quotaReservation);
-        quotaReservation = null;
         return res.status(429).json({
           code: 'DAILY_QUOTA_EXHAUSTED',
           error: 'Nova AI ki aaj ki free image limit khatam ho gayi hai. India time ke mutabik subah 5:30 baje ke baad dobara try karein.',
           retryAt: new Date(imageQuotaBlockedUntil).toISOString()
         });
       }
-      await refundNovaImageQuota(quotaReservation);
-      quotaReservation = null;
       return res.status(imageResponse.status || 502).json({
         code: 'IMAGE_PROVIDER_ERROR',
         error: providerMessage || 'Cloudflare abhi image generate nahi kar pa raha. Thodi der baad try karein.'
@@ -346,20 +323,15 @@ app.post('/api/images/generate', async (req, res) => {
 
     const imageBase64 = data?.result?.image || data?.image;
     if (!imageBase64 || typeof imageBase64 !== 'string') {
-      await refundNovaImageQuota(quotaReservation);
-      quotaReservation = null;
       return res.status(502).json({ code: 'EMPTY_IMAGE', error: 'Image service ne khaali result diya. Dobara try karein.' });
     }
-    quotaReservation = null;
     res.json({ imageBase64, mimeType: 'image/jpeg', model, quota: quotaCheck.quota });
   } catch (error) {
-    await refundNovaImageQuota(quotaReservation);
     res.status(500).json({ error: 'Image generation error: ' + error.message });
   }
 });
 
 app.post('/api/images/edit', async (req, res) => {
-  let quotaReservation = null;
   try {
     const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
     const token = process.env.CLOUDFLARE_API_TOKEN;
@@ -387,7 +359,6 @@ app.post('/api/images/edit', async (req, res) => {
         quota: quotaCheck.quota
       });
     }
-    quotaReservation = quotaCheck.accessToken;
 
     const form = new FormData();
     form.append('prompt', 'Edit the supplied photo according to this request: ' + prompt + '. Preserve the original person identity, facial features, face shape, skin tone and expression as closely as possible. Do not replace or redesign the person. ' +
@@ -404,21 +375,15 @@ app.post('/api/images/edit', async (req, res) => {
     const data = await response.json();
     if (!response.ok || data?.success === false) {
       const message = data?.errors?.[0]?.message || data?.error?.message;
-      await refundNovaImageQuota(quotaReservation);
-      quotaReservation = null;
       return res.status(response.status || 502).json({ error: message || 'The image editor could not process this photo.' });
     }
 
     const image = data?.result?.image;
     if (typeof image !== 'string' || !image) {
-      await refundNovaImageQuota(quotaReservation);
-      quotaReservation = null;
       return res.status(502).json({ error: 'The image editor returned no image.' });
     }
-    quotaReservation = null;
     res.json({ imageBase64: image, mimeType: 'image/jpeg', model, quota: quotaCheck.quota });
   } catch (error) {
-    await refundNovaImageQuota(quotaReservation);
     res.status(500).json({ error: 'Photo editing error: ' + error.message });
   }
 });
