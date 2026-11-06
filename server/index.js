@@ -107,7 +107,7 @@ app.post('/api/images/generate', async (req, res) => {
 
     const model = '@cf/black-forest-labs/flux-1-schnell';
     const imageResponse = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(CLOUDFLARE_ACCOUNT_ID)}/ai/run/${encodeURIComponent(model)}`,
+      `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(CLOUDFLARE_ACCOUNT_ID)}/ai/run/${model}`,
       {
         method: 'POST',
         headers: {
@@ -164,7 +164,7 @@ app.post('/api/images/edit', async (req, res) => {
 
     const model = '@cf/black-forest-labs/flux-2-klein-4b';
     const response = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${encodeURIComponent(model)}`,
+      `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/${model}`,
       { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }
     );
     const data = await response.json();
