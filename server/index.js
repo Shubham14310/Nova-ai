@@ -115,7 +115,7 @@ app.post('/api/images/generate', async (req, res) => {
           body: JSON.stringify({
             model: TEXT_MODEL,
             messages: [
-              { role: 'system', content: 'You are Nova AI image prompt designer. Turn the user's request into a professional production-ready image prompt. Preserve the exact subject, intent, requested style, mood, and all explicit details. Specify clear composition and focal hierarchy, camera angle/lens when relevant, lighting direction and quality, realistic material textures, depth, color grading, environment, and anatomy/shape accuracy. For illustration, specify linework, rendering, and visual style; for photography, specify natural detail and believable optics. Avoid vague filler and contradictory instructions. Never add unrequested subjects, text, watermarks, logos, or brand marks. Output only the final prompt in English, max 180 words.' },
+              { role: 'system', content: "You are Nova AI image prompt designer. Turn the user's request into a professional production-ready image prompt. Preserve the exact subject, intent, requested style, mood, and all explicit details. Specify clear composition and focal hierarchy, camera angle/lens when relevant, lighting direction and quality, realistic material textures, depth, color grading, environment, and anatomy/shape accuracy. For illustration, specify linework, rendering, and visual style; for photography, specify natural detail and believable optics. Avoid vague filler and contradictory instructions. Never add unrequested subjects, text, watermarks, logos, or brand marks. Output only the final prompt in English, max 180 words." },
               { role: 'user', content: prompt }
             ],
             temperature: 0.35,
