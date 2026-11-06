@@ -38,6 +38,42 @@
 .ad-placeholder span:last-child{font-size:.82rem;color:#98a5c8}
 @media(max-width:600px){.ad-placeholder{min-height:100px;padding:14px}}
 </style>
+
+<style>
+/* Nova AI visual refresh */
+:root{--bg:#070817;--panel:#10142b;--text:#f7f5ff;--muted:#b5b7d4;--accent:#a78bfa;--cyan:#67e8f9}
+body{background-color:#070817;background-image:radial-gradient(ellipse at 12% 5%,#5526a633 0,transparent 34%),radial-gradient(ellipse at 88% 22%,#07598533 0,transparent 32%),linear-gradient(180deg,#090a1d 0%,#080b19 48%,#070817 100%);background-attachment:fixed}
+.nav{position:sticky;top:0;z-index:20;padding:13px max(4%,calc((100% - 1080px)/2));width:100%;background:#090a1ddd;border-bottom:1px solid #a78bfa25;backdrop-filter:blur(18px)}
+.brand{letter-spacing:-.025em}.logo{border-radius:15px;background:linear-gradient(135deg,#c084fc,#818cf8 55%,#67e8f9);box-shadow:0 0 28px #8b5cf655}
+.nav a{padding:9px 14px;border:1px solid #a78bfa44;border-radius:999px;color:#e4ddff;transition:.2s}
+.nav a:hover{background:#8b5cf622;border-color:#c4b5fd}
+.hero{padding-top:88px;padding-bottom:74px}
+.eyebrow{background:#8b5cf61c;border-color:#c4b5fd66;color:#e4d9ff;box-shadow:0 0 28px #8b5cf622}
+.hero h1{letter-spacing:-.065em}
+.gradient{background-image:linear-gradient(100deg,#d8b4fe 0%,#a5b4fc 48%,#67e8f9 100%)}
+.hero p{color:#c2c5df}
+.btn{min-height:50px;transition:transform .2s,box-shadow .2s,filter .2s}
+.btn:hover{transform:translateY(-2px);filter:brightness(1.08)}
+.primary{background:linear-gradient(105deg,#a855f7,#6366f1 55%,#06b6d4);color:#fff;box-shadow:0 12px 34px #7c3aed55}
+.primary:hover{box-shadow:0 16px 42px #7c3aed77}
+.secondary{background:#15152d;border-color:#7c72bd;color:#eeeaff}
+.card,.step{background:linear-gradient(145deg,#171a37ed,#101328f2);border-color:#8b7bd044;box-shadow:0 12px 34px #02030c55;transition:transform .22s,border-color .22s,box-shadow .22s}
+.card:hover,.step:hover{transform:translateY(-4px);border-color:#a78bfa99;box-shadow:0 18px 42px #03040f88}
+.feature-poster{border-color:#a78bfa88;background:radial-gradient(ellipse at 8% 0%,#9333ea55 0,transparent 42%),radial-gradient(ellipse at 100% 100%,#0891b255 0,transparent 42%),linear-gradient(135deg,#11112c,#17143b 55%,#071b30);box-shadow:0 24px 75px #6d28d933}
+.poster-tile{border-color:#b9a6ff38;background:linear-gradient(145deg,#ffffff16,#ffffff07);transition:transform .2s,border-color .2s}
+.poster-tile:hover{transform:translateY(-3px);border-color:#67e8f988}
+.poster-foot{background:#080b20cc;border-color:#a78bfa55}
+.step-visual{background:radial-gradient(circle at 50% 45%,#4f46e544,transparent 68%),linear-gradient(145deg,#25204a,#10162e)}
+.step-number{background:linear-gradient(135deg,#c084fc,#67e8f9);color:#101027}
+.tip{background:#11152b;border-color:#8b7bd066}
+.ad-placeholder{background:linear-gradient(110deg,#11152c,#14132d);border-color:#a78bfa77;box-shadow:inset 0 0 30px #8b5cf610}
+.ad-label{color:#c4b5fd}
+.about h2{background:linear-gradient(90deg,#e9d5ff,#a5b4fc,#67e8f9);-webkit-background-clip:text;background-clip:text;color:transparent}
+footer{background:#060713aa;border-color:#a78bfa33}
+footer a:hover{color:#67e8f9}
+@media(max-width:700px){.nav{padding:12px 4%}.hero{padding-top:62px}.primary{width:100%}.actions{gap:10px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
+</style>
 </head>
 <body>
 <header class="wrap nav"><div class="brand"><div class="logo">N</div><span>Nova AI</span></div><a href="#install">How to install</a></header>
