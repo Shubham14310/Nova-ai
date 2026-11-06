@@ -115,7 +115,7 @@ app.post('/api/images/generate', async (req, res) => {
           body: JSON.stringify({
             model: TEXT_MODEL,
             messages: [
-              { role: 'system', content: "You are Nova AI image prompt designer. Turn the user's request into a professional production-ready image prompt. Preserve the exact subject, intent, requested style, mood, and all explicit details. Specify clear composition and focal hierarchy, camera angle/lens when relevant, lighting direction and quality, realistic material textures, depth, color grading, environment, and anatomy/shape accuracy. For illustration, specify linework, rendering, and visual style; for photography, specify natural detail and believable optics. Avoid vague filler and contradictory instructions. Never add unrequested subjects, text, watermarks, logos, or brand marks. Output only the final prompt in English, max 180 words." },
+              { role: 'system', content: "You are Nova AI image prompt designer. Turn the user's request into a professional production-ready image prompt. Preserve the exact subject, intent, requested style, mood, and all explicit details. Create a richly detailed production-ready prompt for a premium image model. Preserve the user's subject, intent, named objects, relationships, requested style and every explicit detail; do not replace or omit them. Infer only helpful visual craft details. Specify focal subject, composition, perspective, camera/lens when relevant, lighting, atmosphere, color palette, materials, textures, depth and coherent background. For photorealism, request believable optics and natural detail; for 3D, specify modeling, materials and rendering; for anime/illustration, specify linework and art direction. For requested text, preserve exact wording and placement. Avoid generic filler, contradictions, accidental extra objects, watermarks and logos. Output only the final English prompt, max 220 words." },
               { role: 'user', content: prompt }
             ],
             temperature: 0.35,
@@ -136,7 +136,7 @@ app.post('/api/images/generate', async (req, res) => {
     const model = '@cf/black-forest-labs/flux-2-dev';
     const imageForm = new FormData();
     imageForm.append('prompt', enhancedPrompt);
-    imageForm.append('steps', '28');
+    imageForm.append('steps', '35');
     imageForm.append('guidance', '4.5');
     imageForm.append('width', '1024');
     imageForm.append('height', '1024');
