@@ -208,6 +208,34 @@ async function refundNovaImageQuota(accessToken) {
   }
 }
 
+app.get('/api/images/quota', async (req, res) => {
+  try {
+    const authorization = req.headers.authorization || '';
+    if (!authorization.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Please log in to view your image quota.' });
+    }
+    const accessToken = authorization.slice(7).trim();
+    const response = await fetch(`${SUPABASE_URL.replace(/\\/+$/, '')}/rest/v1/rpc/get_nova_image_quota`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: '{}'
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return res.status(response.status === 401 || response.status === 403 ? 401 : 503).json({
+        error: response.status === 401 || response.status === 403 ? 'Please log in again.' : 'Image quota is temporarily unavailable.'
+      });
+    }
+    res.json(data);
+  } catch {
+    res.status(500).json({ error: 'Could not load image quota.' });
+  }
+});
+
 app.post('/api/images/generate', async (req, res) => {
   let quotaReservation = null;
   try {
