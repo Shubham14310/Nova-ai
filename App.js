@@ -397,7 +397,17 @@ export default function App() {
           setMessages(completed); await persist(completed);
           return;
         } catch (imageError) {
-          const failed = [...next, { role: 'assistant', content: `Image generate nahi ho paayi: ${imageError.message}` }];
+          const quotaError = imageError.message || '';
+          const quotaHit = /daily free allocation|daily.*neurons|aaj ki free image limit/i.test(quotaError);
+          const friendlyError = quotaHit
+            ? 'Aaj Nova AI ki free image limit khatam ho gayi hai. India time ke mutabik subah 5:30 baje ke baad dobara try karein.'
+            : quotaError;
+          const failed = [...next, {
+            role: 'assistant',
+            content: `Image generate nahi ho paayi: ${friendlyError}`,
+            retryImagePrompt: prompt,
+            retryImageEdit: editingPhoto
+          }];
           setMessages(failed); await persist(failed);
           return;
         }
@@ -529,6 +539,12 @@ export default function App() {
       </TouchableOpacity> : null}
       {renderFormattedText(item.content)}
       {item.imageUri ? <TouchableOpacity onPress={() => saveImageToGallery(item.imageUri)} disabled={savingImage} style={{ alignSelf: 'flex-start', marginTop: 4, marginBottom: 5, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 9, backgroundColor: '#272433' }}><Text style={{ color: '#D8D1FF', fontSize: 12, fontWeight: '700' }}>{savingImage ? 'Saving image...' : '↓ Download image'}</Text></TouchableOpacity> : null}
+      {item.role === 'assistant' && item.retryImagePrompt ? <TouchableOpacity onPress={() => {
+        setInput(item.retryImagePrompt);
+        Alert.alert('Image prompt ready', 'Prompt message box mein aa gaya hai. Free limit reset hone ke baad Send dabayein.');
+      }} style={{ alignSelf: 'flex-start', marginTop: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 9, backgroundColor: '#302A45' }}>
+        <Text style={{ color: '#D8D1FF', fontSize: 12, fontWeight: '700' }}>↻ Retry image later</Text>
+      </TouchableOpacity> : null}
       {item.role === 'assistant' ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 9, gap: 16 }}>
         <TouchableOpacity onPress={() => speak(item.content)}><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▶ Read aloud</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => copyReply(item.content)} accessibilityLabel="Copy Nova reply"><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▢ Copy</Text></TouchableOpacity>
