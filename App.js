@@ -339,7 +339,7 @@ export default function App() {
       // Save the user's message immediately so it is not lost if the network fails.
       await persist(next);
       // Detect image requests in English, Hindi and Hinglish from the normal chat composer.
-      const imageIntent = /(?:\b(?:generate|create|draw|make|paint)\b.{0,100}\b(?:image|picture|photo|art|illustration)\b)|(?:\b(?:image|picture|photo|art|illustration|tasveer|tasvir)\b.{0,100}\b(?:bana(?:o|do)?|bana\s*do|banado|create|generate|draw)\b)|(?:\b(?:bana(?:o|do)?|bana\s*do|banado|make|create|generate|draw)\b.{0,100}\b(?:image|picture|photo|art|illustration|tasveer|tasvir)\b)|(?:(?:फोटो|तस्वीर|इमेज|चित्र).{0,100}(?:बना|बनाओ|बना\s*दो|तैयार))|(?:(?:बना|बनाओ|बना\s*दो|तैयार).{0,100}(?:फोटो|तस्वीर|इमेज|चित्र))/i;
+      const imageIntent = /(?:\\b(?:generate|create|draw|make|paint|design|render|illustrate)\\b.{0,140}\\b(?:an?\\s+)?(?:image|picture|photo|artwork|art|illustration|portrait|visual)\\b)|(?:\\b(?:image|picture|photo|artwork|art|illustration|portrait|visual)\\b.{0,140}\\b(?:generate|create|draw|make|paint|design|render|illustrate|bana(?:o|do)?|banado)\\b)|(?:\\b(?:bana(?:o|do)?|banado|make|create|generate|draw|paint|design)\\b.{0,140}\\b(?:image|picture|photo|artwork|art|illustration|portrait|visual|tasveer|tasvir)\\b)|(?:(?:फोटो|तस्वीर|इमेज|चित्र|पोर्ट्रेट).{0,140}(?:बना|बनाओ|बना\\s*दो|तैयार|बनाना))|(?:(?:बना|बनाओ|बना\\s*दो|तैयार|बनाना).{0,140}(?:फोटो|तस्वीर|इमेज|चित्र|पोर्ट्रेट))/i;
       const photoEditIntent = Boolean(image?.base64 && /\b(edit|change|replace|remove|add|make me|put me|wearing|background|style|बदल|बना दो|कर दो)\b/i.test(text));
       if (imageIntent.test(text) || photoEditIntent) {
         const prompt = text
