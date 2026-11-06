@@ -16,6 +16,27 @@
 
 <style>
 .poster-wrap{padding:8px 0 34px}
+.poster-showcase{display:grid;grid-template-columns:1.1fr .9fr;align-items:center;gap:24px;min-height:300px;margin-bottom:28px}
+.poster-copy{text-align:left;padding:8px 0}
+.poster-copy h2{font-size:clamp(2.1rem,5vw,3.8rem);line-height:1.02;letter-spacing:-.055em;margin:17px 0 13px;max-width:620px}
+.poster-copy p{max-width:490px;color:#c7dce7;font-size:1.04rem;margin:0}
+.poster-highlights{display:flex;flex-wrap:wrap;gap:9px;margin-top:20px}
+.poster-highlights span{padding:7px 11px;border:1px solid #5eead455;border-radius:999px;background:#071b2788;color:#d7f9f5;font-size:.78rem;font-weight:700}
+.poster-device-area{height:285px;position:relative;display:flex;align-items:center;justify-content:center;isolation:isolate}
+.poster-glow{position:absolute;width:220px;height:220px;border-radius:50%;background:#22d3ee44;filter:blur(38px);z-index:-1}
+.poster-phone{width:148px;height:260px;border:5px solid #d7f6ff;border-radius:25px;background:linear-gradient(160deg,#132c43,#091522);box-shadow:0 18px 45px #020a1099;padding:19px 12px;position:absolute}
+.poster-phone-back{transform:translate(-48px,9px) rotate(-9deg);opacity:.88}
+.poster-phone-front{transform:translate(48px,-5px) rotate(7deg);background:linear-gradient(160deg,#172d50,#0a182b)}
+.poster-phone-top{position:absolute;top:7px;left:50%;transform:translateX(-50%);width:42px;height:5px;border-radius:9px;background:#8caab8}
+.poster-app-mark{width:43px;height:43px;border-radius:14px;background:linear-gradient(135deg,#2dd4bf,#60a5fa);display:grid;place-items:center;color:#06202a;font-size:25px;font-weight:950;margin:13px auto 12px;box-shadow:0 6px 20px #2dd4bf55}
+.poster-mini-title{text-align:center;font-weight:850;font-size:.82rem;color:#f0fbff;margin-top:14px}
+.poster-mini-sub{text-align:center;color:#9fc3d2;font-size:.62rem;margin:4px 0 22px}
+.poster-chat-row{height:24px;border-radius:9px;background:linear-gradient(90deg,#1b5360,#17445b);margin:10px 0}
+.poster-chat-row.short{width:68%;margin-left:auto;background:linear-gradient(90deg,#244d80,#2c6590)}
+.poster-prompt{border:1px solid #467285;border-radius:10px;padding:9px 7px;color:#8fb3c4;font-size:.58rem;margin-top:18px}
+.poster-mini-pill{border-radius:10px;padding:8px 6px;text-align:center;background:linear-gradient(100deg,#0d9488,#0284c7);color:white;font-size:.6rem;font-weight:800;margin-top:11px}
+@media(max-width:700px){.poster-showcase{grid-template-columns:1fr;gap:0}.poster-copy{text-align:center}.poster-copy p{margin:auto}.poster-highlights{justify-content:center}.poster-device-area{height:255px}.poster-phone{transform-origin:center}.poster-phone-back{transform:translate(-40px,8px) rotate(-8deg)}.poster-phone-front{transform:translate(40px,-4px) rotate(7deg)}}
+
 .feature-poster{position:relative;overflow:hidden;border:1px solid #6556bb;border-radius:28px;padding:clamp(22px,4vw,38px);background:radial-gradient(ellipse at 10% 0%,#4932a7 0,transparent 42%),radial-gradient(ellipse at 100% 100%,#075e8c 0,transparent 42%),linear-gradient(135deg,#111331,#171344 55%,#081c36);box-shadow:0 22px 65px #3928a744}
 .poster-heading{text-align:center;margin:0 auto 24px;max-width:700px}
 .poster-kicker{display:inline-block;padding:5px 13px;border:1px solid #9b8aff88;border-radius:999px;color:#d9d2ff;background:#ffffff0b;font-size:.78rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
@@ -106,7 +127,7 @@ footer a:hover{color:#5eead4}
 <header class="wrap nav"><div class="brand"><div class="logo">N</div><span>Nova AI</span></div><a href="#install">How to install</a></header>
 <main>
 <section class="wrap hero"><span class="eyebrow">Your intelligent assistant · Android</span><h1>Think faster.<br><span class="gradient">Create with Nova.</span></h1><p>Chat naturally, explore images, work with PDFs and use voice tools — all in one AI assistant.</p><div class="actions"><a class="btn primary" href="https://github.com/Shubham14310/Nova-ai/releases/download/v1.1.1-nova/Nova-AI.apk">Download Latest Version Nova AI APK</a><a class="btn secondary" href="https://github.com/Shubham14310/Nova-ai" target="_blank" rel="noopener">View on GitHub</a></div><div class="note">Direct APK download — no ZIP file or extraction needed. Android installation steps are below.</div></section>
-<section class="wrap poster-wrap" aria-label="Nova AI feature poster"><div class="feature-poster"><div class="poster-heading"><span class="poster-kicker">Meet Nova AI</span><h2>One app. <span class="gradient">Many ways to create.</span></h2><p>Your personal AI assistant for learning, ideas and everyday tasks.</p></div><div class="poster-grid">
+<section class="wrap poster-wrap" aria-label="Nova AI Play Store style feature poster"><div class="feature-poster"><div class="poster-showcase"><div class="poster-copy"><span class="poster-kicker">Meet Nova AI · Latest release · Build #106</span><h2>One app. <span class="gradient">Endless possibilities.</span></h2><p>Your AI companion for chatting, creating, learning and getting things done.</p><div class="poster-highlights"><span>✦ AI-powered chat</span><span>✦ Create and explore images</span><span>✦ PDFs up to 60 MB</span></div></div><div class="poster-device-area" aria-hidden="true"><div class="poster-glow"></div><div class="poster-phone poster-phone-back"><div class="poster-phone-top"></div><div class="poster-mini-title">Your chats</div><div class="poster-chat-row"></div><div class="poster-chat-row short"></div><div class="poster-chat-row"></div><div class="poster-chat-row short"></div><div class="poster-mini-pill"></div></div><div class="poster-phone poster-phone-front"><div class="poster-phone-top"></div><div class="poster-app-mark">N</div><div class="poster-mini-title">Hello, Nova AI</div><div class="poster-mini-sub">How can I help today?</div><div class="poster-prompt">Ask me anything…</div><div class="poster-mini-pill">Send message ↗</div></div></div></div><div class="poster-grid">
 <div class="poster-tile"><span class="poster-icon">💬</span><strong>AI Chat</strong><span>Ask questions and explore ideas</span></div>
 <div class="poster-tile"><span class="poster-icon">🖼️</span><strong>Image Questions</strong><span>Upload a photo and ask about it</span></div>
 <div class="poster-tile"><span class="poster-icon">✨</span><strong>Image Creation</strong><span>Create images from text prompts</span></div>
