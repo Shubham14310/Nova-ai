@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   SafeAreaView, View, Text, TextInput, TouchableOpacity, FlatList,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert, StatusBar, Share
+  KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert, StatusBar, Share, Modal
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,6 +9,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Speech from 'expo-speech';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
 import { NativeAd, NativeAdView, NativeAsset, NativeAssetType, NativeMediaView, TestIds } from 'react-native-google-mobile-ads';
 
 const API_BASE = Constants.expoConfig?.extra?.apiBaseUrl || '';
@@ -83,6 +85,8 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [customInstructions, setCustomInstructions] = useState('');
   const [temporaryChat, setTemporaryChat] = useState(false);
+  const [imageViewerUri, setImageViewerUri] = useState(null);
+  const [savingImage, setSavingImage] = useState(false);
   const listRef = useRef(null);
 
   useEffect(() => {
@@ -295,6 +299,35 @@ export default function App() {
     if (!result.canceled) setImage(result.assets[0]);
   }
 
+  async function saveImageToGallery(uri) {
+    if (!uri || savingImage) return;
+    setSavingImage(true);
+    try {
+      const permission = await MediaLibrary.requestPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Nova AI ko gallery mein image save karne ki permission dein.');
+        return;
+      }
+      let localUri = uri;
+      if (uri.startsWith('data:')) {
+        const base64 = uri.split(',')[1] || '';
+        const fileUri = (FileSystem.cacheDirectory || FileSystem.documentDirectory) + 'nova-image-' + Date.now() + '.png';
+        await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+        localUri = fileUri;
+      } else if (!uri.startsWith('file://')) {
+        const fileUri = (FileSystem.cacheDirectory || FileSystem.documentDirectory) + 'nova-image-' + Date.now() + '.jpg';
+        const downloaded = await FileSystem.downloadAsync(uri, fileUri);
+        localUri = downloaded.uri;
+      }
+      await MediaLibrary.saveToLibraryAsync(localUri);
+      Alert.alert('Image saved', 'Image aapki gallery mein save ho gayi hai.');
+    } catch (error) {
+      Alert.alert('Save failed', error.message || 'Image gallery mein save nahi ho paayi.');
+    } finally {
+      setSavingImage(false);
+    }
+  }
+
   async function choosePdf() {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true, multiple: false });
@@ -492,8 +525,11 @@ export default function App() {
     <View style={item.role === 'user'
       ? { alignSelf: 'flex-end', maxWidth: '88%', backgroundColor: '#6547E8', borderRadius: 18, padding: 13, marginVertical: 6, borderBottomRightRadius: 5 }
       : { alignSelf: 'stretch', width: '100%', backgroundColor: 'transparent', borderRadius: 0, paddingHorizontal: 4, paddingVertical: 12, marginVertical: 4 }}>
-      {item.imageUri ? <Image source={{ uri: item.imageUri }} style={{ width: 190, height: 140, borderRadius: 12, marginBottom: 8 }} /> : null}
+      {item.imageUri ? <TouchableOpacity activeOpacity={0.92} onPress={() => setImageViewerUri(item.imageUri)} accessibilityLabel="Open image full screen">
+        <Image source={{ uri: item.imageUri }} resizeMode="cover" style={{ width: 230, height: 220, borderRadius: 14, marginBottom: 8, backgroundColor: '#20212A' }} />
+      </TouchableOpacity> : null}
       {renderFormattedText(item.content)}
+      {item.imageUri ? <TouchableOpacity onPress={() => saveImageToGallery(item.imageUri)} disabled={savingImage} style={{ alignSelf: 'flex-start', marginTop: 4, marginBottom: 5, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 9, backgroundColor: '#272433' }}><Text style={{ color: '#D8D1FF', fontSize: 12, fontWeight: '700' }}>{savingImage ? 'Saving image...' : '↓ Download image'}</Text></TouchableOpacity> : null}
       {item.role === 'assistant' ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 9, gap: 16 }}>
         <TouchableOpacity onPress={() => speak(item.content)}><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▶ Read aloud</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => copyReply(item.content)} accessibilityLabel="Copy Nova reply"><Text style={{ color: '#B9AFFF', fontSize: 12 }}>▢ Copy</Text></TouchableOpacity>
@@ -662,6 +698,13 @@ export default function App() {
           <TouchableOpacity onPress={() => setShowMenu(false)} style={{ flex: 1 }} />
         </View> : null}
       </KeyboardAvoidingView>
+      <Modal visible={Boolean(imageViewerUri)} transparent animationType="fade" onRequestClose={() => setImageViewerUri(null)}>
+        <View style={{ flex: 1, backgroundColor: '#05060B', justifyContent: 'center', alignItems: 'center' }}>
+          <TouchableOpacity onPress={() => setImageViewerUri(null)} accessibilityLabel="Close image" style={{ position: 'absolute', top: 42, right: 20, zIndex: 5, backgroundColor: '#242330', width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: 25 }}>×</Text></TouchableOpacity>
+          {imageViewerUri ? <Image source={{ uri: imageViewerUri }} resizeMode="contain" style={{ width: '100%', height: '78%' }} /> : null}
+          <TouchableOpacity onPress={() => saveImageToGallery(imageViewerUri)} disabled={savingImage} style={{ marginTop: 18, backgroundColor: '#7659F5', borderRadius: 13, paddingVertical: 13, paddingHorizontal: 24 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{savingImage ? 'Saving...' : '↓ Download image'}</Text></TouchableOpacity>
+        </View>
+      </Modal>
       {showLaunchSplash ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, elevation: 100, backgroundColor: '#090D1F', alignItems: 'center', justifyContent: 'center' }}>
         <Image source={require('./assets/nova-splash.png')} resizeMode="contain" style={{ width: 190, height: 190, marginBottom: 22 }} />
         <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: '800', letterSpacing: 1 }}>Nova AI</Text>
