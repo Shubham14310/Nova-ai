@@ -333,7 +333,7 @@ export default function App() {
       const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true, multiple: false });
       if (result.canceled || !result.assets?.[0]) return;
       const file = result.assets[0];
-      if (file.size && file.size > 8 * 1024 * 1024) return Alert.alert('PDF too large', 'Please choose a PDF smaller than 8 MB.');
+      if (file.size && file.size > 60 * 1024 * 1024) return Alert.alert('PDF too large', 'Please choose a PDF smaller than 60 MB.');
       if (file.mimeType && file.mimeType !== 'application/pdf' && !file.name?.toLowerCase().endsWith('.pdf')) return Alert.alert('Unsupported file', 'Please select a PDF document.');
       setPdfFile(file); setImage(null);
     } catch (error) { Alert.alert('PDF picker error', error.message || 'Could not open the document picker.'); }
@@ -416,16 +416,15 @@ export default function App() {
       let activePdfContext = pdfContext;
       if (pendingPdf) {
         const pdfResponse = await fetch(pendingPdf.uri);
+        if (!pdfResponse.ok) throw new Error('Could not read the selected PDF from this device.');
         const pdfBlob = await pdfResponse.blob();
-        const reader = new FileReader();
-        const pdfBase64 = await new Promise((resolve, reject) => {
-          reader.onerror = () => reject(new Error('Could not read the selected PDF.'));
-          reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
-          reader.readAsDataURL(pdfBlob);
-        });
         const extractResponse = await fetch(`${API_BASE.replace(/\/+$/, '')}/api/pdf/extract`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileName: pendingPdf.name, pdfBase64 })
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/pdf',
+            'X-File-Name': encodeURIComponent(pendingPdf.name || 'document.pdf')
+          },
+          body: pdfBlob
         });
         const extractData = await extractResponse.json();
         if (!extractResponse.ok) throw new Error(extractData.error || 'Could not read this PDF.');
