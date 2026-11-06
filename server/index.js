@@ -105,16 +105,45 @@ app.post('/api/images/generate', async (req, res) => {
     recentRequests.push(now);
     imageGenerationRequests.set(clientKey, recentRequests);
 
-    const model = '@cf/black-forest-labs/flux-1-schnell';
+    // Expand short everyday prompts into a richer visual description, without changing their subject.
+    let enhancedPrompt = prompt;
+    if (API_KEY) {
+      try {
+        const promptResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: TEXT_MODEL,
+            messages: [
+              { role: 'system', content: 'You are Nova AI image prompt designer. Turn the user request into one concise, vivid image-generation prompt. Preserve their subject, requested style, mood, and any details. Add helpful visual specifics: composition, lighting, depth, color palette, material/detail, and photographic or illustration quality as appropriate. Do not add text, watermarks, logos, new subjects, or change the user’s intent. Output only the final prompt, in English, max 180 words.' },
+              { role: 'user', content: prompt }
+            ],
+            temperature: 0.35,
+            max_tokens: 300
+          })
+        });
+        if (promptResponse.ok) {
+          const promptData = await promptResponse.json();
+          const candidate = promptData.choices?.[0]?.message?.content?.trim();
+          if (candidate && candidate.length <= 2048) enhancedPrompt = candidate;
+        }
+      } catch {
+        // Continue with the original prompt if prompt enhancement is temporarily unavailable.
+      }
+    }
+
+    // FLUX.2 [dev] is optimized for highly realistic, detailed image generation.
+    const model = '@cf/black-forest-labs/flux-2-dev';
+    const imageForm = new FormData();
+    imageForm.append('prompt', enhancedPrompt);
+    imageForm.append('width', '1024');
+    imageForm.append('height', '1024');
     const imageResponse = await fetch(
       `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(CLOUDFLARE_ACCOUNT_ID)}/ai/run/${model}`,
       {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ prompt, steps: 4 })
+        headers: { Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}` },
+        body: imageForm
       }
     );
     const data = await imageResponse.json();
