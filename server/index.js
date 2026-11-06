@@ -78,6 +78,53 @@ app.get('/health', (req, res) => {
   });
 });
 
+function getImageDimensions(prompt, requestedRatio) {
+  const raw = String(requestedRatio || '').trim();
+  const text = String(prompt || '').toLowerCase();
+  const ratio = /^(1:1|3:2|2:3|16:9|9:16)$/.test(raw) ? raw
+    : /(?:9\s*:\s*16|vertical|portrait\s+wallpaper|phone\s+wallpaper|instagram\s+story|reel|status\s+story|\bshorts\b)/i.test(text) ? '9:16'
+    : /(?:16\s*:\s*9|youtube\s+thumbnail|wide\s+banner|landscape\s+wallpaper|desktop\s+wallpaper|cinematic\s+wide)/i.test(text) ? '16:9'
+    : /(?:2\s*:\s*3|book\s+cover|poster|full\s+length\s+portrait)/i.test(text) ? '2:3'
+    : /(?:3\s*:\s*2|landscape\s+photo)/i.test(text) ? '3:2'
+    : '1:1';
+  const dimensions = {
+    '1:1': { width: 1024, height: 1024 },
+    '3:2': { width: 1536, height: 1024 },
+    '2:3': { width: 1024, height: 1536 },
+    '16:9': { width: 1792, height: 1024 },
+    '9:16': { width: 1024, height: 1792 }
+  };
+  return { ratio, ...dimensions[ratio] };
+}
+
+function parseFluxStructuredPrompt(candidate) {
+  if (typeof candidate !== 'string') return null;
+  const cleaned = candidate.trim().replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/, '');
+  try {
+    const value = JSON.parse(cleaned);
+    if (!value || typeof value !== 'object' || typeof value.scene !== 'string' || !Array.isArray(value.subjects) || !value.subjects.length) return null;
+    value.subjects = value.subjects.slice(0, 6).map(subject => ({
+      type: String(subject?.type || 'main subject').slice(0, 120),
+      description: String(subject?.description || 'as described by the user').slice(0, 500),
+      pose: String(subject?.pose || 'natural, coherent pose').slice(0, 180),
+      position: ['foreground', 'midground', 'background'].includes(subject?.position) ? subject.position : 'foreground'
+    }));
+    value.scene = value.scene.slice(0, 700);
+    if (typeof value.style !== 'string') value.style = 'high-quality detailed visual artwork, following the user requested style';
+    if (!Array.isArray(value.color_palette)) value.color_palette = ['balanced natural colors', 'supporting accent', 'deep shadow tone'];
+    value.color_palette = value.color_palette.slice(0, 3).map(color => String(color).slice(0, 60));
+    if (typeof value.lighting !== 'string') value.lighting = 'cinematic, physically coherent lighting';
+    if (typeof value.mood !== 'string') value.mood = 'matches the user requested mood';
+    if (typeof value.background !== 'string') value.background = 'coherent environment that supports the main subject';
+    if (typeof value.composition !== 'string') value.composition = 'clear focal hierarchy and balanced composition';
+    if (!Array.isArray(value.effects)) value.effects = [];
+    value.effects = value.effects.slice(0, 5).map(effect => String(effect).slice(0, 80));
+    return value;
+  } catch {
+    return null;
+  }
+}
+
 const imageGenerationRequests = new Map();
 
 app.post('/api/images/generate', async (req, res) => {
@@ -105,7 +152,8 @@ app.post('/api/images/generate', async (req, res) => {
     recentRequests.push(now);
     imageGenerationRequests.set(clientKey, recentRequests);
 
-    // Expand short everyday prompts into a richer visual description, without changing their subject.
+    // Use FLUX.2's structured JSON prompting when the text model returns valid JSON.
+    // If prompt enhancement is unavailable, preserve the user's original request.
     let enhancedPrompt = prompt;
     if (API_KEY) {
       try {
@@ -115,31 +163,37 @@ app.post('/api/images/generate', async (req, res) => {
           body: JSON.stringify({
             model: TEXT_MODEL,
             messages: [
-              { role: 'system', content: "You are Nova AI image prompt designer. Turn the user's request into a professional production-ready image prompt. Preserve the exact subject, intent, requested style, mood, and all explicit details. Create a richly detailed production-ready prompt for a premium image model. Preserve the user's subject, intent, named objects, relationships, requested style and every explicit detail; do not replace or omit them. Infer only helpful visual craft details. Specify focal subject, composition, perspective, camera/lens when relevant, lighting, atmosphere, color palette, materials, textures, depth and coherent background. For photorealism, request believable optics and natural detail; for 3D, specify modeling, materials and rendering; for anime/illustration, specify linework and art direction. For requested text, preserve exact wording and placement. Avoid generic filler, contradictions, accidental extra objects, watermarks and logos. Output only the final English prompt, max 220 words." },
+              {
+                role: 'system',
+                content: `Convert the user's image request into a valid JSON object for the FLUX.2 image model. Return ONLY JSON, no markdown. Required schema: {"scene":"string","subjects":[{"type":"string","description":"string","pose":"string","position":"foreground|midground|background"}],"style":"string","color_palette":["color1","color2","color3"],"lighting":"string","mood":"string","background":"string","composition":"string","camera":{"angle":"eye level|low angle|slightly low|bird's-eye|worm's-eye|over-the-shoulder|isometric","distance":"close-up|medium close-up|medium shot|medium wide|wide shot|extreme wide","focus":"deep focus|macro focus|selective focus|sharp on subject|soft background","lens":"14mm|24mm|35mm|50mm|70mm|85mm","f-number":"f/2.8"},"effects":["string"]}. Preserve the exact subject, named objects, count, relationships, requested style, mood, language-specific details and any exact text. Never replace the subject with a generic alternative. Include every important object and its position. Add useful art direction: foreground/midground/background, perspective, lighting direction, material texture, depth, color harmony and camera framing. Choose camera settings only when appropriate. For photorealism use believable optics and natural texture; for 3D specify geometry/materials and polished rendering; for anime/illustration specify linework and art direction. If the user asks for a logo, poster, thumbnail or text, preserve the exact wording and give it clear readable placement. Avoid contradictions, duplicate subjects, random extra objects, watermarks and fake logos. Keep it concise but visually specific.`
+              },
               { role: 'user', content: prompt }
             ],
-            temperature: 0.35,
-            max_tokens: 300
+            temperature: 0.2,
+            max_tokens: 650
           })
         });
         if (promptResponse.ok) {
           const promptData = await promptResponse.json();
           const candidate = promptData.choices?.[0]?.message?.content?.trim();
-          if (candidate && candidate.length <= 2048) enhancedPrompt = candidate;
+          const structured = parseFluxStructuredPrompt(candidate);
+          if (structured) enhancedPrompt = JSON.stringify(structured);
+          else if (candidate && candidate.length <= 3000) enhancedPrompt = candidate;
         }
       } catch {
-        // Continue with the original prompt if prompt enhancement is temporarily unavailable.
+        // Keep the original prompt if enhancement is temporarily unavailable.
       }
     }
 
-    // FLUX.2 [dev] is optimized for highly realistic, detailed image generation.
+    const dimensions = getImageDimensions(prompt, req.body?.aspectRatio);
+    // FLUX.2 [dev] supports up to 50 steps; 35 balances detail, latency and shared free usage.
     const model = '@cf/black-forest-labs/flux-2-dev';
     const imageForm = new FormData();
     imageForm.append('prompt', enhancedPrompt);
     imageForm.append('steps', '35');
     imageForm.append('guidance', '4.5');
-    imageForm.append('width', '1024');
-    imageForm.append('height', '1024');
+    imageForm.append('width', String(dimensions.width));
+    imageForm.append('height', String(dimensions.height));
     const imageResponse = await fetch(
       `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(CLOUDFLARE_ACCOUNT_ID)}/ai/run/${model}`,
       {
