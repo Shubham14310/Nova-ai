@@ -126,6 +126,30 @@ function parseFluxStructuredPrompt(candidate) {
 }
 
 const imageGenerationRequests = new Map();
+let imageQuotaBlockedUntil = 0;
+
+function getNextUtcReset() {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0);
+}
+
+function getConfiguredImageSettings() {
+  const requestedSteps = Number.parseInt(process.env.NOVA_IMAGE_STEPS || '16', 10);
+  const requestedMaxSide = Number.parseInt(process.env.NOVA_IMAGE_MAX_SIDE || '768', 10);
+  return {
+    steps: Math.max(8, Math.min(35, Number.isFinite(requestedSteps) ? requestedSteps : 16)),
+    maxSide: Math.max(512, Math.min(1024, Number.isFinite(requestedMaxSide) ? requestedMaxSide : 768))
+  };
+}
+
+function scaleImageDimensions(dimensions, maxSide) {
+  const scale = Math.min(1, maxSide / Math.max(dimensions.width, dimensions.height));
+  return {
+    ...dimensions,
+    width: Math.max(512, Math.round((dimensions.width * scale) / 64) * 64),
+    height: Math.max(512, Math.round((dimensions.height * scale) / 64) * 64)
+  };
+}
 
 app.post('/api/images/generate', async (req, res) => {
   try {
@@ -140,6 +164,16 @@ app.post('/api/images/generate', async (req, res) => {
     const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
     if (!prompt) return res.status(400).json({ error: 'An image prompt is required.' });
     if (prompt.length > 2048) return res.status(400).json({ error: 'Please keep the image prompt under 2,048 characters.' });
+
+    // Once Cloudflare reports the shared daily neuron quota is exhausted, stop
+    // all further image calls on this instance until the next UTC day.
+    if (Date.now() < imageQuotaBlockedUntil) {
+      return res.status(429).json({
+        code: 'DAILY_QUOTA_EXHAUSTED',
+        error: 'Nova AI ki aaj ki free image limit khatam ho gayi hai. India time ke mutabik subah 5:30 baje ke baad dobara try karein.',
+        retryAt: new Date(imageQuotaBlockedUntil).toISOString()
+      });
+    }
 
     // Basic per-client throttling helps protect the shared free daily allowance.
     const forwardedFor = req.headers['x-forwarded-for'];
@@ -185,12 +219,14 @@ app.post('/api/images/generate', async (req, res) => {
       }
     }
 
-    const dimensions = getImageDimensions(prompt, req.body?.aspectRatio);
-    // FLUX.2 [dev] supports up to 50 steps; 35 balances detail, latency and shared free usage.
+    const imageSettings = getConfiguredImageSettings();
+    const dimensions = scaleImageDimensions(getImageDimensions(prompt, req.body?.aspectRatio), imageSettings.maxSide);
+    // Lower default steps and a capped output size reduce latency and shared neuron consumption.
+    // Owners can tune NOVA_IMAGE_STEPS (8-35) and NOVA_IMAGE_MAX_SIDE (512-1024).
     const model = '@cf/black-forest-labs/flux-2-dev';
     const imageForm = new FormData();
     imageForm.append('prompt', enhancedPrompt);
-    imageForm.append('steps', '35');
+    imageForm.append('steps', String(imageSettings.steps));
     imageForm.append('guidance', '4.5');
     imageForm.append('width', String(dimensions.width));
     imageForm.append('height', String(dimensions.height));
@@ -204,15 +240,24 @@ app.post('/api/images/generate', async (req, res) => {
     );
     const data = await imageResponse.json();
     if (!imageResponse.ok || data?.success === false) {
-      const providerMessage = data?.errors?.[0]?.message || data?.error?.message;
+      const providerMessage = data?.errors?.[0]?.message || data?.error?.message || '';
+      if (/used up.*daily free allocation|daily free allocation.*neurons|daily.*neurons/i.test(providerMessage)) {
+        imageQuotaBlockedUntil = getNextUtcReset();
+        return res.status(429).json({
+          code: 'DAILY_QUOTA_EXHAUSTED',
+          error: 'Nova AI ki aaj ki free image limit khatam ho gayi hai. India time ke mutabik subah 5:30 baje ke baad dobara try karein.',
+          retryAt: new Date(imageQuotaBlockedUntil).toISOString()
+        });
+      }
       return res.status(imageResponse.status || 502).json({
-        error: providerMessage || 'Cloudflare could not generate this image. Please try again later.'
+        code: 'IMAGE_PROVIDER_ERROR',
+        error: providerMessage || 'Cloudflare abhi image generate nahi kar pa raha. Thodi der baad try karein.'
       });
     }
 
     const imageBase64 = data?.result?.image || data?.image;
     if (!imageBase64 || typeof imageBase64 !== 'string') {
-      return res.status(502).json({ error: 'Cloudflare returned an empty image.' });
+      return res.status(502).json({ code: 'EMPTY_IMAGE', error: 'Image service ne khaali result diya. Dobara try karein.' });
     }
     res.json({ imageBase64, mimeType: 'image/jpeg', model });
   } catch (error) {
