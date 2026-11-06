@@ -146,8 +146,8 @@ function scaleImageDimensions(dimensions, maxSide) {
   const scale = Math.min(1, maxSide / Math.max(dimensions.width, dimensions.height));
   return {
     ...dimensions,
-    width: Math.max(512, Math.round((dimensions.width * scale) / 64) * 64),
-    height: Math.max(512, Math.round((dimensions.height * scale) / 64) * 64)
+    width: Math.max(256, Math.round((dimensions.width * scale) / 64) * 64),
+    height: Math.max(256, Math.round((dimensions.height * scale) / 64) * 64)
   };
 }
 
