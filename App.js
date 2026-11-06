@@ -71,6 +71,7 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [session, setSession] = useState(null);
+  const [imageQuota, setImageQuota] = useState(null);
   const [authMode, setAuthMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -93,6 +94,18 @@ export default function App() {
     const splashTimer = setTimeout(() => setShowLaunchSplash(false), 1900);
     return () => clearTimeout(splashTimer);
   }, []);
+
+  useEffect(() => {
+    if (!showProfile || !session?.access_token) return;
+    let active = true;
+    fetch(`${API_BASE.replace(/\\/+$/, '')}/api/images/quota`, {
+      headers: { Authorization: 'Bearer ' + session.access_token }
+    })
+      .then(response => response.json())
+      .then(data => { if (active && typeof data.used === 'number') setImageQuota(data); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [showProfile, session?.access_token]);
 
   useEffect(() => {
     (async () => {
@@ -375,6 +388,12 @@ export default function App() {
       const imageIntent = /(?:\b(?:generate|create|draw|make|paint|design|render|illustrate|imagine|visualize)\b.{0,200}\b(?:image|picture|photo|artwork|art|illustration|portrait|visual|of|sunset|ocean|beach|mountain|forest|galaxy|planet|dragon|cat|dog|flower|waterfall|city|castle|wallpaper)\b)|(?:\b(?:rasgulla|gulab\s*jamun|jalebi|laddu|mithai|dessert|sweet|food|cake|chocolate|pizza|burger|ice\s*cream)\b.{0,150}\b(?:city|town|kingdom|castle|street|world|landscape|skyline|village|planet|island|building|temple|palace|garden|forest|ocean|river)\b)|(?:\b(?:city|town|kingdom|castle|street|world|landscape|skyline|village|planet|island|building|temple|palace|garden|forest|ocean|river)\b.{0,150}\b(?:with|full\s+of|made\s+of|glowing|neon|magical|futuristic|at\s+night|lights?|lanterns?|stars?|clouds?|rain|sunset|sunrise)\b)|(?:\b(?:astronaut|tiger|elephant|unicorn|phoenix|spaceship|waterfall|volcano|desert|underwater|robot|fairy|samurai|superhero|dragon|castle|city|planet|galaxy)\b.{0,150}\b(?:with|glowing|neon|magical|futuristic|lights?|stars?|rain|sunset|wearing|holding|surrounded\s+by)\b)|(?:(?:फोटो|तस्वीर|इमेज|चित्र|पोर्ट्रेट).{0,180}(?:बना|बनाओ|बना\s*दो|तैयार|बनाना))|(?:(?:बना|बनाओ|बना\s*दो|तैयार|बनाना).{0,180}(?:फोटो|तस्वीर|इमेज|चित्र|पोर्ट्रेट))|(?:\b(?:bana(?:o|do)?|banado)\b.{0,120}\b(?:image|picture|photo|tasveer|tasvir)\b)|(?:\b(?:image|picture|photo|tasveer|tasvir)\b.{0,120}\b(?:banao|banado|bana\s*do)\b)/i;
       const photoEditIntent = Boolean(image?.base64 && /\b(edit|change|replace|remove|add|make me|put me|wearing|background|style|बदल|बना दो|कर दो)\b/i.test(text));
       if (imageIntent.test(text) || photoEditIntent) {
+        if (!session?.access_token) {
+          setAuthMode('signup');
+          setShowAuth(true);
+          Alert.alert('Account required', 'Image generation ke liye pehle free Nova AI account banayein ya login karein.');
+          return;
+        }
         const prompt = text
           .replace(/^(?:please\s+)?(?:generate|create|draw|make|paint)(?:\s+me)?\s+(?:an?\s+)?(?:image|picture|photo|art|illustration)(?:\s+(?:of|for))?\s*/i, '')
           .replace(/^(?:ek|एक)\s+/i, '')
@@ -384,7 +403,7 @@ export default function App() {
         try {
           const editingPhoto = Boolean(image?.base64);
           const imageResponse = await fetch(`${API_BASE.replace(/\/+$/, '')}/api/images/${editingPhoto ? 'edit' : 'generate'}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
             body: JSON.stringify(editingPhoto
               ? { prompt, imageBase64: image.base64, mimeType: image.mimeType || 'image/jpeg' }
               : { prompt })
@@ -392,15 +411,16 @@ export default function App() {
           const imageData = await imageResponse.json();
           if (!imageResponse.ok) throw new Error(imageData.error || `Image generation failed (HTTP ${imageResponse.status})`);
           if (!imageData.imageBase64) throw new Error('Image service returned no image.');
+          if (imageData.quota) setImageQuota(imageData.quota);
           const generated = { role: 'assistant', content: editingPhoto ? 'Aapki photo prompt ke mutabik edit ki gayi hai ✨' : 'Ye rahi aapki image ✨', imageUri: `data:${imageData.mimeType || 'image/jpeg'};base64,${imageData.imageBase64}` };
           const completed = [...next, generated];
           setMessages(completed); await persist(completed);
           return;
         } catch (imageError) {
           const quotaError = imageError.message || '';
-          const quotaHit = /daily free allocation|daily.*neurons|aaj ki free image limit/i.test(quotaError);
+          const quotaHit = /daily free allocation|daily.*neurons|20 daily image generations|daily image quota/i.test(quotaError);
           const friendlyError = quotaHit
-            ? 'Aaj Nova AI ki free image limit khatam ho gayi hai. India time ke mutabik subah 5:30 baje ke baad dobara try karein.'
+            ? 'Aapki 20 daily image generations complete ho gayi hain. India time ke mutabik raat 12 baje quota reset hoga.'
             : quotaError;
           const failed = [...next, {
             role: 'assistant',
@@ -588,6 +608,14 @@ export default function App() {
           <Text style={{ color: '#FFFFFF', fontSize: 19, fontWeight: '700' }}>{session?.user?.user_metadata?.display_name || 'Nova AI user'}</Text>
           <Text style={{ color: '#A3A4B4', marginTop: 6 }}>{session?.user?.email || 'No email available'}</Text>
           <Text style={{ color: '#77798B', marginTop: 18, fontSize: 12 }}>Your account details</Text>
+          <View style={{ backgroundColor: '#22232D', borderRadius: 14, padding: 15, marginTop: 18 }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '800' }}>Daily image quota</Text>
+            <Text style={{ color: '#B8B8C7', marginTop: 7 }}>{imageQuota ? `${imageQuota.remaining} of 20 images remaining today` : 'Loading your image quota...'}</Text>
+            <View style={{ height: 7, backgroundColor: '#393747', borderRadius: 5, marginTop: 11, overflow: 'hidden' }}>
+              <View style={{ height: 7, width: `${Math.min(100, Math.max(0, ((imageQuota?.used || 0) / 20) * 100))}%`, backgroundColor: '#8B75FF', borderRadius: 5 }} />
+            </View>
+            <Text style={{ color: '#858698', fontSize: 11, marginTop: 8 }}>Resets daily at 12:00 AM India time. Image edits count too.</Text>
+          </View>
           <TouchableOpacity onPress={() => setShowProfile(false)} style={{ marginTop: 24, backgroundColor: '#272433', padding: 14, borderRadius: 12, alignItems: 'center' }}><Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Back to chat</Text></TouchableOpacity>
         </View> : showSettings ? <View style={{ flex: 1, padding: 18 }}>
           <Text style={{ color: '#FFFFFF', fontSize: 23, fontWeight: '800', marginBottom: 8 }}>Personalization</Text>
