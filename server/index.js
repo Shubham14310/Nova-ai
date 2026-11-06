@@ -161,7 +161,7 @@ async function reserveNovaImageQuota(req) {
   const accessToken = authorization.slice(7).trim();
   if (!accessToken) return { allowed: false, status: 401, error: 'Please log in to generate images.' };
 
-  const response = await fetch(`${SUPABASE_URL.replace(/\\/+$/, '')}/rest/v1/rpc/consume_nova_image_quota`, {
+  const response = await fetch(`${SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/rpc/consume_nova_image_quota`, {
     method: 'POST',
     headers: {
       apikey: SUPABASE_ANON_KEY,
@@ -194,7 +194,7 @@ async function reserveNovaImageQuota(req) {
 async function refundNovaImageQuota(accessToken) {
   if (!accessToken) return;
   try {
-    await fetch(`${SUPABASE_URL.replace(/\\/+$/, '')}/rest/v1/rpc/refund_nova_image_quota`, {
+    await fetch(`${SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/rpc/refund_nova_image_quota`, {
       method: 'POST',
       headers: {
         apikey: SUPABASE_ANON_KEY,
@@ -215,7 +215,7 @@ app.get('/api/images/quota', async (req, res) => {
       return res.status(401).json({ error: 'Please log in to view your image quota.' });
     }
     const accessToken = authorization.slice(7).trim();
-    const response = await fetch(`${SUPABASE_URL.replace(/\\/+$/, '')}/rest/v1/rpc/get_nova_image_quota`, {
+    const response = await fetch(`${SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/rpc/get_nova_image_quota`, {
       method: 'POST',
       headers: {
         apikey: SUPABASE_ANON_KEY,
