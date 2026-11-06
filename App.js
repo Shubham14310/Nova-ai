@@ -406,7 +406,7 @@ export default function App() {
             role: 'assistant',
             content: `Image generate nahi ho paayi: ${friendlyError}`,
             retryImagePrompt: prompt,
-            retryImageEdit: editingPhoto
+            retryImageEdit: Boolean(image?.base64)
           }];
           setMessages(failed); await persist(failed);
           return;
