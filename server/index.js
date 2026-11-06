@@ -154,7 +154,7 @@ app.post('/api/images/generate', async (req, res) => {
 
     // Use FLUX.2's structured JSON prompting when the text model returns valid JSON.
     // If prompt enhancement is unavailable, preserve the user's original request.
-    let enhancedPrompt = prompt;
+    let enhancedPrompt = prompt + '. Preserve the exact requested subject and all named details. Create a coherent, richly detailed image with a clear focal subject, balanced composition, believable lighting, realistic materials and textures, depth, and a background that supports the scene. Follow the requested visual style; do not add unrelated objects, text, logos or watermarks.';
     if (API_KEY) {
       try {
         const promptResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
