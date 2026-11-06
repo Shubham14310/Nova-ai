@@ -19,7 +19,9 @@
     "expo-constants": "~18.0.0",
     "expo-clipboard": "~8.0.0",
     "react-native-google-mobile-ads": "^17.0.0",
-    "expo-document-picker": "~57.0.3"
+    "expo-document-picker": "~57.0.3",
+    "expo-file-system": "*",
+    "expo-media-library": "*"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2"
