@@ -98,7 +98,7 @@ export default function App() {
   useEffect(() => {
     if (!showProfile || !session?.access_token) return;
     let active = true;
-    fetch(`${API_BASE.replace(/\\/+$/, '')}/api/images/quota`, {
+    fetch(`${API_BASE.replace(/\/+$/, '')}/api/images/quota`, {
       headers: { Authorization: 'Bearer ' + session.access_token }
     })
       .then(response => response.json())
